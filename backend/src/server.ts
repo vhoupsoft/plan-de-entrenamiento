@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
+import personasRoutes from './routes/personas';
+import ejerciciosRoutes from './routes/ejercicios';
 import prisma from './prismaClient';
 
 dotenv.config({ path: './prisma/.env' });
@@ -13,6 +15,8 @@ app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/personas', personasRoutes);
+app.use('/api/ejercicios', ejerciciosRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

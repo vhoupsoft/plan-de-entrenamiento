@@ -17,3 +17,5 @@ npm run dev
 Antes de iniciar, configura `backend/prisma/.env` con tu `DATABASE_URL` y `JWT_SECRET`.
 
 No subas archivos `.env` al repositorio.
+
+_Última actualización: se agregaron endpoints CRUD para Personas y Ejercicios en el backend._
