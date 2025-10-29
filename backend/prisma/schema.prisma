@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Ejercicio {
+  id           Int           @id @default(autoincrement())
+  codEjercicio String       @db.VarChar(50)
+  descripcion  String       @db.Text
+  planDetalles PlanDetalle[]
+
+  @@map("ejercicios")
+}
+
+model Persona {
+  id               Int      @id @default(autoincrement())
+  dni              String   @unique
+  nombre           String
+  esAlumno        Boolean  @default(false)
+  esEntrenador    Boolean  @default(false)
+  alumnoActivo    Boolean  @default(true)
+  entrenadorActivo Boolean @default(true)
+  usuario         String   @unique
+  clave           String
+  planesAlumno    Plan[]   @relation("AlumnoPlan")
+  planesEntrenador Plan[]  @relation("EntrenadorPlan")
+  rolesUsuario    RolUsuario[]
+
+  @@map("personas")
+}
+
+model Plan {
+  id            Int       @id @default(autoincrement())
+  alumnoId      Int
+  entrenadorId  Int
+  fechaDesde    DateTime
+  fechaHasta    DateTime?
+  activo        Boolean   @default(true)
+  alumno        Persona   @relation("AlumnoPlan", fields: [alumnoId], references: [id])
+  entrenador    Persona   @relation("EntrenadorPlan", fields: [entrenadorId], references: [id])
+  dias          PlanDia[]
+
+  @@map("planes")
+}
+
+model PlanDia {
+  id          Int           @id @default(autoincrement())
+  planId      Int
+  nroDia      Int
+  descripcion String        @db.VarChar(20)
+  plan        Plan          @relation(fields: [planId], references: [id])
+  detalles    PlanDetalle[]
+
+  @@map("plan_dias")
+}
+
+model PlanDetalle {
+  id           Int       @id @default(autoincrement())
+  planDiaId    Int
+  ejercicioId  Int
+  series       Int
+  repeticiones Int
+  tiempoEnSeg  Int
+  carga        Float
+  orden        Int
+  etapaId      Int
+  planDia      PlanDia   @relation(fields: [planDiaId], references: [id])
+  ejercicio    Ejercicio @relation(fields: [ejercicioId], references: [id])
+  etapa        Etapa     @relation(fields: [etapaId], references: [id])
+
+  @@map("plan_detalles")
+}
+
+model Etapa {
+  id          Int           @id @default(autoincrement())
+  descripcion String
+  orden       Int
+  detalles    PlanDetalle[]
+
+  @@map("etapas")
+}
+
+model Rol {
+  id          Int           @id @default(autoincrement())
+  descripcion String
+  usuarios    RolUsuario[]
+
+  @@map("roles")
+}
+
+model RolUsuario {
+  id        Int     @id @default(autoincrement())
+  rolId     Int
+  usuarioId Int
+  rol       Rol     @relation(fields: [rolId], references: [id])
+  usuario   Persona @relation(fields: [usuarioId], references: [id])
+
+  @@map("rol_usuarios")
+}
