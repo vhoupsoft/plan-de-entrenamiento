@@ -4,6 +4,10 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import personasRoutes from './routes/personas';
 import ejerciciosRoutes from './routes/ejercicios';
+import etapasRoutes from './routes/etapas';
+import planesRoutes from './routes/planes';
+import planDiasRoutes from './routes/planDias';
+import planDetallesRoutes from './routes/planDetalles';
 import prisma from './prismaClient';
 
 dotenv.config({ path: './prisma/.env' });
@@ -17,6 +21,10 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/personas', personasRoutes);
 app.use('/api/ejercicios', ejerciciosRoutes);
+app.use('/api/etapas', etapasRoutes);
+app.use('/api/planes', planesRoutes);
+app.use('/api/plan-dias', planDiasRoutes);
+app.use('/api/plan-detalles', planDetallesRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
