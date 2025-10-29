@@ -8,6 +8,8 @@ import etapasRoutes from './routes/etapas';
 import planesRoutes from './routes/planes';
 import planDiasRoutes from './routes/planDias';
 import planDetallesRoutes from './routes/planDetalles';
+import rolesRoutes from './routes/roles';
+import rolUsuariosRoutes from './routes/rolUsuarios';
 import prisma from './prismaClient';
 
 dotenv.config({ path: './prisma/.env' });
@@ -25,6 +27,8 @@ app.use('/api/etapas', etapasRoutes);
 app.use('/api/planes', planesRoutes);
 app.use('/api/plan-dias', planDiasRoutes);
 app.use('/api/plan-detalles', planDetallesRoutes);
+app.use('/api/roles', rolesRoutes);
+app.use('/api/rol-usuarios', rolUsuariosRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
