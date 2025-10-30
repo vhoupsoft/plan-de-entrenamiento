@@ -1,6 +1,7 @@
 ﻿import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import api from '../api';
 import { TextField, Button, Container, Box, Typography, Alert } from "@mui/material";
 
 export default function Login() {
@@ -15,8 +16,10 @@ export default function Login() {
     try {
       const res = await axios.post("/api/auth/login", { usuario, clave });
       const { token } = res.data;
-      localStorage.setItem("token", token);
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          localStorage.setItem("token", token);
+          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+          // also set the api helper instance header so subsequent calls use the token
+          api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       navigate("/");
     } catch (err: any) {
       setError(err?.response?.data?.error || "Error al iniciar sesión");
