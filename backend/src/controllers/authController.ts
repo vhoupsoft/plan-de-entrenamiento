@@ -47,7 +47,14 @@ export const login = async (req: Request, res: Response) => {
 
     const token = jwt.sign({ sub: user.id, usuario: user.usuario }, JWT_SECRET, { expiresIn: '8h' });
 
-    return res.json({ token, user: { id: user.id, nombre: user.nombre, esAlumno: user.esAlumno, esEntrenador: user.esEntrenador } });
+    // fetch assigned roles for the user
+    const rolUsuarios = await prisma.rolUsuario.findMany({ where: { usuarioId: user.id }, include: { rol: true } });
+  const roles = rolUsuarios.map((r) => r.rol.descripcion);
+
+    return res.json({
+      token,
+      user: { id: user.id, nombre: user.nombre, esAlumno: user.esAlumno, esEntrenador: user.esEntrenador, roles },
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Error del servidor' });
