@@ -15,11 +15,12 @@ export default function Login() {
     setError("");
     try {
       const res = await axios.post("/api/auth/login", { usuario, clave });
-      const { token } = res.data;
-          localStorage.setItem("token", token);
-          axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-          // also set the api helper instance header so subsequent calls use the token
-          api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    const { token, user } = res.data;
+      localStorage.setItem("token", token);
+      if (user) localStorage.setItem('user', JSON.stringify(user));
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      // also set the api helper instance header so subsequent calls use the token
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       navigate("/");
     } catch (err: any) {
       setError(err?.response?.data?.error || "Error al iniciar sesión");

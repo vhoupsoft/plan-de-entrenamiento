@@ -13,6 +13,8 @@ import {
   TextField,
   Stack,
   CircularProgress,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -34,6 +36,14 @@ export default function Ejercicios() {
   const [cod, setCod] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [errors, setErrors] = useState<{ cod?: string }>({});
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  // snackbar
+  const [snackOpen, setSnackOpen] = useState(false);
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
 
   const fetch = async () => {
     setLoading(true);
@@ -92,9 +102,14 @@ export default function Ejercicios() {
       await fetch();
       setOpen(false);
       setEditing(null);
+      setSnackMsg(editing ? 'Ejercicio actualizado' : 'Ejercicio creado');
+      setSnackSeverity('success');
+      setSnackOpen(true);
     } catch (err: any) {
       console.error('save ejercicio', err, err?.response?.data);
-      alert(err?.response?.data?.error || 'Error al guardar');
+      setSnackMsg(err?.response?.data?.error || 'Error al guardar');
+      setSnackSeverity('error');
+      setSnackOpen(true);
     } finally {
       setIsSaving(false);
     }
@@ -105,9 +120,14 @@ export default function Ejercicios() {
     try {
       await api.delete(`/ejercicios/${e.id}`);
       fetch();
+      setSnackMsg('Ejercicio borrado');
+      setSnackSeverity('success');
+      setSnackOpen(true);
     } catch (err: any) {
       console.error('delete', err, err?.response?.data);
-      alert(err?.response?.data?.error || 'Error al borrar');
+      setSnackMsg(err?.response?.data?.error || 'Error al borrar');
+      setSnackSeverity('error');
+      setSnackOpen(true);
     }
   };
 
@@ -120,6 +140,13 @@ export default function Ejercicios() {
 
       <Paper>
         <Box p={2}>
+          <Box display="flex" gap={2} alignItems="center" mb={2}>
+            <TextField label="Buscar" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} size="small" />
+            <Box flex={1} />
+            <Typography variant="body2">Página {page}</Typography>
+            <Button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Anterior</Button>
+            <Button disabled={items.length <= page * pageSize} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+          </Box>
           {loading ? (
             <Box display="flex" justifyContent="center" p={2}><CircularProgress /></Box>
           ) : items.length === 0 ? (
@@ -135,7 +162,14 @@ export default function Ejercicios() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => (
+                {items
+                  .filter((it) => {
+                    const q = query.trim().toLowerCase();
+                    if (!q) return true;
+                    return (it.codEjercicio || '').toLowerCase().includes(q) || (it.descripcion || '').toLowerCase().includes(q);
+                  })
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map((it) => (
                   <tr key={it.id} style={{ borderTop: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>{it.id}</td>
                     <td style={{ padding: 8 }}>{it.codEjercicio}</td>
@@ -155,6 +189,12 @@ export default function Ejercicios() {
           )}
         </Box>
       </Paper>
+
+      <Snackbar open={snackOpen} autoHideDuration={4000} onClose={() => setSnackOpen(false)}>
+        <Alert onClose={() => setSnackOpen(false)} severity={snackSeverity} sx={{ width: '100%' }}>
+          {snackMsg}
+        </Alert>
+      </Snackbar>
 
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? 'Editar ejercicio' : 'Nuevo ejercicio'}</DialogTitle>
