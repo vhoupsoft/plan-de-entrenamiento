@@ -44,6 +44,7 @@ export default function Ejercicios() {
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const fetch = async () => {
     setLoading(true);
@@ -59,6 +60,13 @@ export default function Ejercicios() {
 
   useEffect(() => {
     fetch();
+    // load current user from localStorage (set at login)
+    try {
+      const u = localStorage.getItem('user');
+      if (u) setCurrentUser(JSON.parse(u));
+    } catch (e) {
+      setCurrentUser(null);
+    }
   }, []);
 
   const openCreate = () => {
@@ -135,7 +143,11 @@ export default function Ejercicios() {
     <Box sx={{ p: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5">Ejercicios</Typography>
-        <Button variant="contained" onClick={openCreate}>Nuevo ejercicio</Button>
+        {((currentUser && (currentUser.roles?.includes('Admin') || currentUser.roles?.includes('Entrenador'))) || currentUser?.esEntrenador) ? (
+          <Button variant="contained" onClick={openCreate}>Nuevo ejercicio</Button>
+        ) : (
+          <div />
+        )}
       </Box>
 
       <Paper>
@@ -175,12 +187,16 @@ export default function Ejercicios() {
                     <td style={{ padding: 8 }}>{it.codEjercicio}</td>
                     <td style={{ padding: 8 }}>{it.descripcion}</td>
                     <td style={{ padding: 8, textAlign: 'right' }}>
-                      <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => onDelete(it)} aria-label="borrar">
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                      {((currentUser && (currentUser.roles?.includes('Admin') || currentUser.roles?.includes('Entrenador'))) || currentUser?.esEntrenador) && (
+                        <>
+                          <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => onDelete(it)} aria-label="borrar">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
