@@ -67,10 +67,10 @@ model PlanDetalle {
   tiempoEnSeg  Int
   carga        Float
   orden        Int
-  etapaId      Int
+  etapaId      Int?
   planDia      PlanDia   @relation(fields: [planDiaId], references: [id])
   ejercicio    Ejercicio @relation(fields: [ejercicioId], references: [id])
-  etapa        Etapa     @relation(fields: [etapaId], references: [id])
+  etapa        Etapa?    @relation(fields: [etapaId], references: [id])
 
   @@map("plan_detalles")
 }

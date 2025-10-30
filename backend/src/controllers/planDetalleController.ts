@@ -37,9 +37,9 @@ export const createPlanDetalle = async (req: Request, res: Response) => {
       tiempoEnSeg: tiempoEnSeg ? Number(tiempoEnSeg) : 0,
       carga: carga ? Number(carga) : 0,
       orden: orden ? Number(orden) : 0,
-      etapaId: etapaId ? Number(etapaId) : undefined,
+      etapaId: etapaId && etapaId !== '' ? Number(etapaId) : null,
     } as any;
-    if (data.etapaId === undefined) delete data.etapaId;
+    if (data.etapaId === null) delete data.etapaId;
     const detalle = await prisma.planDetalle.create({ data });
     res.status(201).json(detalle);
   } catch (err) {
@@ -52,6 +52,10 @@ export const updatePlanDetalle = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const payload = { ...req.body } as any;
+    // Convert etapaId: if empty string, set to null
+    if ('etapaId' in payload) {
+      payload.etapaId = payload.etapaId && payload.etapaId !== '' ? Number(payload.etapaId) : null;
+    }
     Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
     const updated = await prisma.planDetalle.update({ where: { id }, data: payload });
     res.json(updated);
