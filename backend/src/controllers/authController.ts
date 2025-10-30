@@ -60,3 +60,23 @@ export const login = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Error del servidor' });
   }
 };
+
+export const me = async (req: Request, res: Response) => {
+  try {
+    // req.user is set by requireAuth middleware and contains { sub: userId }
+    const anyReq: any = req as any;
+    const payload = anyReq.user;
+    if (!payload || !payload.sub) return res.status(401).json({ error: 'No autorizado' });
+
+    const user = await prisma.persona.findUnique({ where: { id: Number(payload.sub) } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const rolUsuarios = await prisma.rolUsuario.findMany({ where: { usuarioId: user.id }, include: { rol: true } });
+    const roles = rolUsuarios.map((r) => r.rol.descripcion);
+
+    return res.json({ user: { id: user.id, nombre: user.nombre, esAlumno: user.esAlumno, esEntrenador: user.esEntrenador, roles } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Error del servidor' });
+  }
+};

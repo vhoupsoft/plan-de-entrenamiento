@@ -43,8 +43,19 @@ export const updateEjercicio = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const { codEjercicio, descripcion } = req.body;
+    // if codEjercicio is provided, ensure it's not used by another record
+    if (codEjercicio) {
+      const exists = await prisma.ejercicio.findFirst({ where: { codEjercicio, NOT: { id } } as any });
+      if (exists) return res.status(400).json({ error: 'Código ya existe' });
+    }
+
     const data: any = { codEjercicio, descripcion };
     Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+
+    // ensure record exists
+    const found = await prisma.ejercicio.findUnique({ where: { id } });
+    if (!found) return res.status(404).json({ error: 'No encontrado' });
+
     const ej = await prisma.ejercicio.update({ where: { id }, data });
     res.json(ej);
   } catch (err) {
