@@ -1,6 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
-import { Box, Button, IconButton, Typography, Paper } from '@mui/material';
+import {
+  Box,
+  Button,
+  IconButton,
+  Typography,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Stack,
+  CircularProgress,
+} from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 
@@ -13,6 +26,14 @@ type Ejercicio = {
 export default function Ejercicios() {
   const [items, setItems] = useState<Ejercicio[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // dialog/form state
+  const [open, setOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editing, setEditing] = useState<Ejercicio | null>(null);
+  const [cod, setCod] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [errors, setErrors] = useState<{ cod?: string }>({});
 
   const fetch = async () => {
     setLoading(true);
@@ -30,29 +51,52 @@ export default function Ejercicios() {
     fetch();
   }, []);
 
-  const onCreate = async () => {
-    const cod = window.prompt('Código del ejercicio');
-    if (!cod) return;
-    const descripcion = window.prompt('Descripción (opcional)') || undefined;
-    try {
-      await api.post('/ejercicios', { codEjercicio: cod, descripcion });
-      fetch();
-    } catch (err: any) {
-      console.error('create', err, err?.response?.data);
-      alert(err?.response?.data?.error || 'Error al crear');
-    }
+  const openCreate = () => {
+    setEditing(null);
+    setCod('');
+    setDescripcion('');
+    setErrors({});
+    setOpen(true);
   };
 
-  const onEdit = async (e: Ejercicio) => {
-    const cod = window.prompt('Código', e.codEjercicio);
-    if (!cod) return;
-    const descripcion = window.prompt('Descripción (opcional)', e.descripcion || '') || undefined;
+  const openEdit = (e: Ejercicio) => {
+    setEditing(e);
+    setCod(e.codEjercicio);
+    setDescripcion(e.descripcion || '');
+    setErrors({});
+    setOpen(true);
+  };
+
+  const close = () => {
+    if (isSaving) return;
+    setOpen(false);
+    setEditing(null);
+  };
+
+  const validate = () => {
+    const err: { cod?: string } = {};
+    if (!cod || cod.trim().length === 0) err.cod = 'Código requerido';
+    setErrors(err);
+    return Object.keys(err).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validate()) return;
+    setIsSaving(true);
     try {
-      await api.put(`/ejercicios/${e.id}`, { codEjercicio: cod, descripcion });
-      fetch();
+      if (editing) {
+        await api.put(`/ejercicios/${editing.id}`, { codEjercicio: cod.trim(), descripcion: descripcion || undefined });
+      } else {
+        await api.post('/ejercicios', { codEjercicio: cod.trim(), descripcion: descripcion || undefined });
+      }
+      await fetch();
+      setOpen(false);
+      setEditing(null);
     } catch (err: any) {
-      console.error('edit', err, err?.response?.data);
-      alert(err?.response?.data?.error || 'Error al editar');
+      console.error('save ejercicio', err, err?.response?.data);
+      alert(err?.response?.data?.error || 'Error al guardar');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -71,13 +115,13 @@ export default function Ejercicios() {
     <Box sx={{ p: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5">Ejercicios</Typography>
-        <Button variant="contained" onClick={onCreate}>Nuevo ejercicio</Button>
+        <Button variant="contained" onClick={openCreate}>Nuevo ejercicio</Button>
       </Box>
 
       <Paper>
         <Box p={2}>
           {loading ? (
-            <div>Cargando...</div>
+            <Box display="flex" justifyContent="center" p={2}><CircularProgress /></Box>
           ) : items.length === 0 ? (
             <div>No hay ejercicios.</div>
           ) : (
@@ -97,7 +141,7 @@ export default function Ejercicios() {
                     <td style={{ padding: 8 }}>{it.codEjercicio}</td>
                     <td style={{ padding: 8 }}>{it.descripcion}</td>
                     <td style={{ padding: 8, textAlign: 'right' }}>
-                      <IconButton size="small" onClick={() => onEdit(it)} aria-label="editar">
+                      <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
                         <EditIcon fontSize="small" />
                       </IconButton>
                       <IconButton size="small" onClick={() => onDelete(it)} aria-label="borrar">
@@ -111,6 +155,37 @@ export default function Ejercicios() {
           )}
         </Box>
       </Paper>
+
+      <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
+        <DialogTitle>{editing ? 'Editar ejercicio' : 'Nuevo ejercicio'}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Código"
+              value={cod}
+              onChange={(ev) => setCod(ev.target.value)}
+              error={!!errors.cod}
+              helperText={errors.cod}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Descripción"
+              value={descripcion}
+              onChange={(ev) => setDescripcion(ev.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={close} disabled={isSaving}>Cancelar</Button>
+          <Button onClick={handleSave} variant="contained" disabled={isSaving}>
+            {isSaving ? 'Guardando...' : 'Guardar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
