@@ -1,28 +1,33 @@
-﻿import React from "react";
+﻿import React, { useState } from "react";
 import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import Login from "../pages/Login";
+import Dashboard from "../pages/Dashboard";
 import Ejercicios from "../pages/Ejercicios";
-import { Box, Button, Typography } from "@mui/material";
+import Personas from "../pages/Personas";
+import Planes from "../pages/Planes";
+import Roles from "../pages/Roles";
+import { Box, Button, Typography, Menu, MenuItem, IconButton } from "@mui/material";
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { AuthProvider, useAuth } from "../context/AuthContext";
 
-const Dashboard: React.FC = () => {
-  return (
-    <div style={{ padding: 20 }}>
-      <h1>Panel Principal</h1>
-      <p>Bienvenido. Aquí irá la navegación y el contenido principal.</p>
-      <nav style={{ marginTop: 16 }}>
-        <Link to="/ejercicios" style={{ marginRight: 12 }}>
-          Ejercicios
-        </Link>
-      </nav>
-    </div>
-  );
-};
+// Dashboard removed to avoid duplicate navigation (use header menu instead)
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const nombre = user?.nombre || user?.usuario || '';
+
+  // menu for quick navigation when clicking the app title
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const menuOpen = Boolean(anchorEl);
+  const handleTitleClick = (e: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(e.currentTarget);
+  };
+  const handleMenuClose = () => setAnchorEl(null);
+  const go = (path: string) => {
+    handleMenuClose();
+    navigate(path);
+  };
 
   const handleLogout = () => {
     logout();
@@ -31,7 +36,42 @@ const Header: React.FC = () => {
 
   return (
     <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ p: 1, borderBottom: '1px solid #eee' }}>
-      <Typography variant="h6">Plan de Entrenamiento</Typography>
+      <Box>
+        <Box display="flex" alignItems="center">
+          <Typography
+            variant="h6"
+            onClick={() => navigate('/')}
+            sx={{ cursor: 'pointer', userSelect: 'none', mr: 0.5 }}
+            aria-label="Ir al panel principal"
+          >
+            Plan de Entrenamiento
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={handleTitleClick}
+            aria-controls={menuOpen ? 'app-nav-menu' : undefined}
+            aria-haspopup="true"
+            aria-label="Abrir menú de navegación"
+          >
+            <ExpandMoreIcon />
+          </IconButton>
+
+          <Menu
+            id="app-nav-menu"
+            anchorEl={anchorEl}
+            open={menuOpen}
+            onClose={handleMenuClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          >
+            <MenuItem onClick={() => go('/')}>Panel Principal</MenuItem>
+            <MenuItem onClick={() => go('/ejercicios')}>Ejercicios</MenuItem>
+            <MenuItem onClick={() => go('/personas')}>Personas</MenuItem>
+            <MenuItem onClick={() => go('/planes')}>Planes</MenuItem>
+            {user?.roles?.includes('Admin') && <MenuItem onClick={() => go('/roles')}>Roles</MenuItem>}
+          </Menu>
+        </Box>
+      </Box>
       <Box display="flex" alignItems="center" gap={2}>
         {nombre && <Typography variant="body2">{nombre}</Typography>}
         <Button size="small" onClick={handleLogout}>Cerrar sesión</Button>
@@ -69,6 +109,30 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Ejercicios />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/personas"
+          element={
+            <ProtectedRoute>
+              <Personas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/planes"
+          element={
+            <ProtectedRoute>
+              <Planes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/roles"
+          element={
+            <ProtectedRoute>
+              <Roles />
             </ProtectedRoute>
           }
         />
