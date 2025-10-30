@@ -1,7 +1,8 @@
 ﻿import React from "react";
-import { Routes, Route, Navigate, Link } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import Login from "../pages/Login";
 import Ejercicios from "../pages/Ejercicios";
+import { Box, Button, Typography } from "@mui/material";
 
 const Dashboard: React.FC = () => {
   return (
@@ -17,10 +18,46 @@ const Dashboard: React.FC = () => {
   );
 };
 
+const Header: React.FC = () => {
+  const navigate = useNavigate();
+  const userRaw = localStorage.getItem("user");
+  let nombre = '';
+  try {
+    if (userRaw) {
+      const u = JSON.parse(userRaw);
+      nombre = u.nombre || u.usuario || '';
+    }
+  } catch (e) {
+    nombre = '';
+  }
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    // redirect to login
+    navigate('/login');
+  };
+
+  return (
+    <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ p: 1, borderBottom: '1px solid #eee' }}>
+      <Typography variant="h6">Plan de Entrenamiento</Typography>
+      <Box display="flex" alignItems="center" gap={2}>
+        {nombre && <Typography variant="body2">{nombre}</Typography>}
+        <Button size="small" onClick={logout}>Cerrar sesión</Button>
+      </Box>
+    </Box>
+  );
+}
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const token = localStorage.getItem("token");
   if (!token) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  return (
+    <Box>
+      <Header />
+      {children}
+    </Box>
+  );
 };
 
 export default function App() {
