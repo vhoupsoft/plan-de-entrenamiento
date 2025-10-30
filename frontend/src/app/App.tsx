@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import Login from "../pages/Login";
 import Ejercicios from "../pages/Ejercicios";
 import { Box, Button, Typography } from "@mui/material";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 
 const Dashboard: React.FC = () => {
   return (
@@ -20,21 +21,11 @@ const Dashboard: React.FC = () => {
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
-  const userRaw = localStorage.getItem("user");
-  let nombre = '';
-  try {
-    if (userRaw) {
-      const u = JSON.parse(userRaw);
-      nombre = u.nombre || u.usuario || '';
-    }
-  } catch (e) {
-    nombre = '';
-  }
+  const { user, logout } = useAuth();
+  const nombre = user?.nombre || user?.usuario || '';
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    // redirect to login
+  const handleLogout = () => {
+    logout();
     navigate('/login');
   };
 
@@ -43,7 +34,7 @@ const Header: React.FC = () => {
       <Typography variant="h6">Plan de Entrenamiento</Typography>
       <Box display="flex" alignItems="center" gap={2}>
         {nombre && <Typography variant="body2">{nombre}</Typography>}
-        <Button size="small" onClick={logout}>Cerrar sesión</Button>
+        <Button size="small" onClick={handleLogout}>Cerrar sesión</Button>
       </Box>
     </Box>
   );
@@ -62,24 +53,26 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/ejercicios"
-        element={
-          <ProtectedRoute>
-            <Ejercicios />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ejercicios"
+          element={
+            <ProtectedRoute>
+              <Ejercicios />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AuthProvider>
   );
 }

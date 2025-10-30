@@ -2,6 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
 import { TextField, Button, Container, Box, Typography, Alert } from "@mui/material";
 
 export default function Login() {
@@ -9,6 +10,7 @@ export default function Login() {
   const [clave, setClave] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { setUser } = useAuth();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +19,10 @@ export default function Login() {
       const res = await axios.post("/api/auth/login", { usuario, clave });
     const { token, user } = res.data;
       localStorage.setItem("token", token);
-      if (user) localStorage.setItem('user', JSON.stringify(user));
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+      }
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       // also set the api helper instance header so subsequent calls use the token
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;

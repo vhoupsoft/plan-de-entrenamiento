@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
 import {
   Box,
   Button,
@@ -44,7 +45,8 @@ export default function Ejercicios() {
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  // get current user from context instead of localStorage
+  const { user: currentUser } = useAuth();
 
   const fetch = async () => {
     setLoading(true);
@@ -60,13 +62,7 @@ export default function Ejercicios() {
 
   useEffect(() => {
     fetch();
-    // load current user from localStorage (set at login)
-    try {
-      const u = localStorage.getItem('user');
-      if (u) setCurrentUser(JSON.parse(u));
-    } catch (e) {
-      setCurrentUser(null);
-    }
+    // currentUser comes from AuthContext
   }, []);
 
   const openCreate = () => {
