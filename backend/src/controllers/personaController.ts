@@ -87,6 +87,12 @@ export const updatePersona = async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     const { nombre, usuario, clave, esAlumno, esEntrenador, alumnoActivo, entrenadorActivo, dni } = req.body;
 
+    // if usuario or dni provided, ensure they're not used by another persona
+    if (usuario || dni) {
+      const exists = await prisma.persona.findFirst({ where: { NOT: { id }, OR: [{ usuario }, { dni }] } as any });
+      if (exists) return res.status(400).json({ error: 'Usuario o DNI ya existe' });
+    }
+
     const data: any = {
       nombre,
       usuario,

@@ -27,6 +27,9 @@ export const createEtapa = async (req: Request, res: Response) => {
   try {
     const { descripcion, orden } = req.body;
     if (!descripcion || orden === undefined) return res.status(400).json({ error: 'Faltan datos' });
+    // ensure descripcion is unique
+    const existing = await prisma.etapa.findFirst({ where: { descripcion } });
+    if (existing) return res.status(400).json({ error: 'Descripción ya existe' });
     const etapa = await prisma.etapa.create({ data: { descripcion, orden } });
     res.status(201).json(etapa);
   } catch (err) {
@@ -39,6 +42,11 @@ export const updateEtapa = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const { descripcion, orden } = req.body;
+    // if descripcion provided, ensure not used by other etapa
+    if (descripcion) {
+      const exists = await prisma.etapa.findFirst({ where: { descripcion, NOT: { id } } as any });
+      if (exists) return res.status(400).json({ error: 'Descripción ya existe' });
+    }
     const data: any = { descripcion, orden };
     Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
     const etapa = await prisma.etapa.update({ where: { id }, data });

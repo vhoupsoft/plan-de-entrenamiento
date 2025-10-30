@@ -22,17 +22,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUserState] = useState<User | null>(null);
 
   useEffect(() => {
-    // read user and token from localStorage on init
+    // read token from localStorage and validate by calling /auth/me
     const token = localStorage.getItem('token');
-    const u = localStorage.getItem('user');
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-    if (u) {
-      try {
-        setUserState(JSON.parse(u));
-      } catch (e) {
-        setUserState(null);
+      // try to refresh user from server
+      api
+        .get('/auth/me')
+        .then((res) => {
+          if (res.data && res.data.user) {
+            setUserState(res.data.user);
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+          }
+        })
+        .catch((err) => {
+          // token invalid or other error -> clear
+          console.warn('auth/me failed, clearing token', err?.response?.data);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          delete api.defaults.headers.common['Authorization'];
+          setUserState(null);
+        });
+    } else {
+      const u = localStorage.getItem('user');
+      if (u) {
+        try {
+          setUserState(JSON.parse(u));
+        } catch (e) {
+          setUserState(null);
+        }
       }
     }
   }, []);
