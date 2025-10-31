@@ -21,6 +21,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
@@ -91,6 +93,11 @@ export default function Dashboard() {
   const [currentDiaIndex, setCurrentDiaIndex] = useState(0);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [etapas, setEtapas] = useState<Etapa[]>([]);
+  const [expandedEtapas, setExpandedEtapas] = useState<Set<number>>(new Set());
+  const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set());
+  
+  // Estado por alumno: guarda diaIndex y etapas expandidas para cada alumno
+  const [alumnoStates, setAlumnoStates] = useState<Map<number, { diaIndex: number, expandedEtapas: Set<number> }>>(new Map());
 
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
@@ -217,14 +224,48 @@ export default function Dashboard() {
     );
   };
 
+  // Guardar estado del alumno actual antes de cambiar
+  const saveCurrentAlumnoState = () => {
+    if (planesActivos.length === 0) return;
+    const alumnoId = planesActivos[currentAlumnoIndex]?.alumnoId;
+    if (!alumnoId) return;
+    
+    const newMap = new Map(alumnoStates);
+    newMap.set(alumnoId, {
+      diaIndex: currentDiaIndex,
+      expandedEtapas: new Set(expandedEtapas),
+    });
+    setAlumnoStates(newMap);
+  };
+
+  // Restaurar estado del alumno cuando cambia
+  const restoreAlumnoState = (newIndex: number) => {
+    const alumnoId = planesActivos[newIndex]?.alumnoId;
+    if (!alumnoId) return;
+    
+    const savedState = alumnoStates.get(alumnoId);
+    if (savedState) {
+      setCurrentDiaIndex(savedState.diaIndex);
+      setExpandedEtapas(new Set(savedState.expandedEtapas));
+    } else {
+      // Si no hay estado guardado, resetear a valores por defecto
+      setCurrentDiaIndex(0);
+      setExpandedEtapas(new Set());
+    }
+  };
+
   const handlePrevAlumno = () => {
-    setCurrentAlumnoIndex(prev => Math.max(0, prev - 1));
-    setCurrentDiaIndex(0);
+    saveCurrentAlumnoState();
+    const newIndex = Math.max(0, currentAlumnoIndex - 1);
+    setCurrentAlumnoIndex(newIndex);
+    restoreAlumnoState(newIndex);
   };
 
   const handleNextAlumno = () => {
-    setCurrentAlumnoIndex(prev => Math.min(planesActivos.length - 1, prev + 1));
-    setCurrentDiaIndex(0);
+    saveCurrentAlumnoState();
+    const newIndex = Math.min(planesActivos.length - 1, currentAlumnoIndex + 1);
+    setCurrentAlumnoIndex(newIndex);
+    restoreAlumnoState(newIndex);
   };
 
   const handlePrevDia = () => {
@@ -238,6 +279,42 @@ export default function Dashboard() {
     }
   };
 
+  // Toggle etapas expandidas/colapsadas
+  const toggleEtapa = (etapaId: number) => {
+    setExpandedEtapas(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(etapaId)) {
+        newSet.delete(etapaId);
+      } else {
+        newSet.add(etapaId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle ejercicios expandidos (descripción completa)
+  const toggleExercise = (detalleId: number) => {
+    setExpandedExercises(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(detalleId)) {
+        newSet.delete(detalleId);
+      } else {
+        newSet.add(detalleId);
+      }
+      return newSet;
+    });
+  };
+
+  // Formatear tiempo: segundos con " o minutos'segundos" si >= 60
+  const formatTiempo = (segundos: number): string => {
+    if (segundos < 60) {
+      return `${segundos}"`;
+    }
+    const minutos = Math.floor(segundos / 60);
+    const segs = segundos % 60;
+    return segs > 0 ? `${minutos}'${segs}"` : `${minutos}'`;
+  };
+
   // Touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -246,29 +323,16 @@ export default function Dashboard() {
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
     const deltaX = touchEndX - touchStartX.current;
-    const deltaY = touchEndY - touchStartY.current;
 
     const minSwipeDistance = 50;
 
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      // Horizontal swipe
-      if (Math.abs(deltaX) > minSwipeDistance) {
-        if (deltaX > 0) {
-          handlePrevAlumno();
-        } else {
-          handleNextAlumno();
-        }
-      }
-    } else {
-      // Vertical swipe
-      if (Math.abs(deltaY) > minSwipeDistance) {
-        if (deltaY > 0) {
-          handlePrevDia();
-        } else {
-          handleNextDia();
-        }
+    // Solo navegación horizontal (alumnos)
+    if (Math.abs(deltaX) > minSwipeDistance) {
+      if (deltaX > 0) {
+        handlePrevAlumno();
+      } else {
+        handleNextAlumno();
       }
     }
   };
@@ -318,7 +382,9 @@ export default function Dashboard() {
         display: 'flex', 
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: '#f5f5f5'
+        bgcolor: '#f5f5f5',
+        overscrollBehavior: 'contain',
+        touchAction: 'pan-y pan-x'
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -382,23 +448,72 @@ export default function Dashboard() {
           {/* Header */}
           <Paper sx={{ p: 2, borderRadius: 0 }} elevation={3}>
             <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box>
-                <Typography variant="h5" fontWeight="bold">
-                  {currentPlan?.alumno.nombre}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Entrenador: {currentPlan?.entrenador.nombre}
-                </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                {/* Botones de navegación de alumnos */}
+                <Box display="flex" flexDirection="column" gap={0.5}>
+                  <IconButton 
+                    onClick={handlePrevAlumno} 
+                    disabled={currentAlumnoIndex === 0}
+                    size="small"
+                    color="primary"
+                    sx={{ padding: '2px' }}
+                  >
+                    <ArrowUpwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton 
+                    onClick={handleNextAlumno} 
+                    disabled={currentAlumnoIndex === planesActivos.length - 1}
+                    size="small"
+                    color="primary"
+                    sx={{ padding: '2px' }}
+                  >
+                    <ArrowDownwardIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+                
+                <Box>
+                  <Typography variant="h5" fontWeight="bold">
+                    {currentPlan?.alumno.nombre}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Entrenador: {currentPlan?.entrenador.nombre}
+                  </Typography>
+                </Box>
               </Box>
-              <Box textAlign="right">
-                <Chip 
-                  label={`Día ${currentDia?.nroDia || 0}`} 
-                  color="primary" 
-                  sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}
-                />
-                <Typography variant="body2" sx={{ mt: 0.5 }}>
-                  {currentDia?.descripcion}
-                </Typography>
+              
+              <Box display="flex" alignItems="center" gap={1}>
+                {/* Botones de navegación de días */}
+                <Box display="flex" flexDirection="column" gap={0.5}>
+                  <IconButton 
+                    onClick={handlePrevDia} 
+                    disabled={currentDiaIndex === 0}
+                    size="small"
+                    color="secondary"
+                    sx={{ padding: '2px' }}
+                  >
+                    <ArrowUpwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton 
+                    onClick={handleNextDia} 
+                    disabled={!currentPlan?.dias || currentDiaIndex === currentPlan.dias.length - 1}
+                    size="small"
+                    color="secondary"
+                    sx={{ padding: '2px' }}
+                  >
+                    <ArrowDownwardIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+                
+                <Box textAlign="right">
+                  <Chip 
+                    label={`Día ${currentDia?.nroDia || 0}`} 
+                    color="primary" 
+                    sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}
+                  />
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {currentDia?.descripcion}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
           </Paper>
@@ -415,49 +530,82 @@ export default function Dashboard() {
                 {etapasOrdenadas.map(etapa => {
                   const etapaDetalles = detallesPorEtapa[`etapa_${etapa.id}`];
                   if (!etapaDetalles || etapaDetalles.length === 0) return null;
+                  
+                  const isExpanded = expandedEtapas.has(etapa.id);
 
                   return (
                     <Box key={etapa.id}>
-                      <Typography 
-                        variant="h5" 
-                        fontWeight="bold" 
-                        color="primary" 
-                        gutterBottom
-                        sx={{ mb: 2 }}
+                      <Box
+                        onClick={() => toggleEtapa(etapa.id)}
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          cursor: 'pointer',
+                          mb: 2,
+                          '&:hover': { opacity: 0.8 }
+                        }}
                       >
-                        {etapa.descripcion}
-                      </Typography>
-                      <Stack spacing={2}>
-                        {etapaDetalles.map(detalle => {
-                          const ejercicio = ejercicios.find(e => e.id === detalle.ejercicioId);
-                          return (
-                            <Card key={detalle.id} elevation={2}>
-                              <CardContent>
-                                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                                  {detalle.orden}. {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                  {ejercicio?.descripcion}
-                                </Typography>
-                                <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                  {detalle.series > 0 && (
-                                    <Chip label={`${detalle.series} series`} size="medium" />
-                                  )}
-                                  {detalle.repeticiones > 0 && (
-                                    <Chip label={`${detalle.repeticiones} reps`} size="medium" />
-                                  )}
-                                  {detalle.tiempoEnSeg > 0 && (
-                                    <Chip label={`${detalle.tiempoEnSeg} seg`} size="medium" />
-                                  )}
-                                  {detalle.carga > 0 && (
-                                    <Chip label={`${detalle.carga} kg`} size="medium" color="secondary" />
-                                  )}
-                                </Box>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </Stack>
+                        <Typography 
+                          variant="h5" 
+                          fontWeight="bold" 
+                          color="primary"
+                          sx={{ flex: 1 }}
+                        >
+                          {etapa.descripcion}
+                        </Typography>
+                        {isExpanded ? <ExpandLessIcon color="primary" /> : <ExpandMoreIcon color="primary" />}
+                      </Box>
+                      
+                      {isExpanded && (
+                        <Stack spacing={2}>
+                          {etapaDetalles.map(detalle => {
+                            const ejercicio = ejercicios.find(e => e.id === detalle.ejercicioId);
+                            const isExerciseExpanded = expandedExercises.has(detalle.id);
+                            
+                            return (
+                              <Card 
+                                key={detalle.id} 
+                                elevation={2}
+                                onClick={() => toggleExercise(detalle.id)}
+                                sx={{ cursor: 'pointer' }}
+                              >
+                                <CardContent>
+                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: 1 }}>
+                                    <Typography variant="h6" fontWeight="bold" component="span">
+                                      {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
+                                    </Typography>
+                                    {detalle.series > 0 && (
+                                      <Chip label={`${detalle.series} ser.`} size="small" />
+                                    )}
+                                    {detalle.repeticiones > 0 && (
+                                      <Chip label={`${detalle.repeticiones} reps`} size="small" />
+                                    )}
+                                    {detalle.tiempoEnSeg > 0 && (
+                                      <Chip label={`${detalle.tiempoEnSeg} seg`} size="small" color="info" />
+                                    )}
+                                    {detalle.carga > 0 && (
+                                      <Chip label={`${detalle.carga} kg`} size="small" color="secondary" />
+                                    )}
+                                  </Box>
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary"
+                                    sx={{
+                                      ...(!isExerciseExpanded && {
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                      })
+                                    }}
+                                  >
+                                    {ejercicio?.descripcion}
+                                  </Typography>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </Stack>
+                      )}
                     </Box>
                   );
                 })}
@@ -465,102 +613,86 @@ export default function Dashboard() {
                 {/* Render sin etapa */}
                 {sinEtapa.length > 0 && (
                   <Box>
-                    <Typography 
-                      variant="h5" 
-                      fontWeight="bold" 
-                      color="text.secondary" 
-                      gutterBottom
-                      sx={{ mb: 2 }}
+                    <Box
+                      onClick={() => toggleEtapa(0)} // Use 0 for "sin etapa"
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        cursor: 'pointer',
+                        mb: 2,
+                        '&:hover': { opacity: 0.8 }
+                      }}
                     >
-                      Otros Ejercicios
-                    </Typography>
-                    <Stack spacing={2}>
-                      {sinEtapa.map(detalle => {
-                        const ejercicio = ejercicios.find(e => e.id === detalle.ejercicioId);
-                        return (
-                          <Card key={detalle.id} elevation={2}>
-                            <CardContent>
-                              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                                {detalle.orden}. {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary" gutterBottom>
-                                {ejercicio?.descripcion}
-                              </Typography>
-                              <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                                {detalle.series > 0 && (
-                                  <Chip label={`${detalle.series} series`} size="medium" />
-                                )}
-                                {detalle.repeticiones > 0 && (
-                                  <Chip label={`${detalle.repeticiones} reps`} size="medium" />
-                                )}
-                                {detalle.tiempoEnSeg > 0 && (
-                                  <Chip label={`${detalle.tiempoEnSeg} seg`} size="medium" />
-                                )}
-                                {detalle.carga > 0 && (
-                                  <Chip label={`${detalle.carga} kg`} size="medium" color="secondary" />
-                                )}
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </Stack>
+                      <Typography 
+                        variant="h5" 
+                        fontWeight="bold" 
+                        color="text.secondary"
+                        sx={{ flex: 1 }}
+                      >
+                        Otros Ejercicios
+                      </Typography>
+                      {expandedEtapas.has(0) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </Box>
+                    
+                    {expandedEtapas.has(0) && (
+                      <Stack spacing={2}>
+                        {sinEtapa.map(detalle => {
+                          const ejercicio = ejercicios.find(e => e.id === detalle.ejercicioId);
+                          const isExerciseExpanded = expandedExercises.has(detalle.id);
+                          
+                          return (
+                            <Card 
+                              key={detalle.id} 
+                              elevation={2}
+                              onClick={() => toggleExercise(detalle.id)}
+                              sx={{ cursor: 'pointer' }}
+                            >
+                              <CardContent>
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: 1 }}>
+                                  <Typography variant="h6" fontWeight="bold" component="span">
+                                    {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
+                                  </Typography>
+                                  {detalle.series > 0 && (
+                                    <Chip label={`${detalle.series} S`} size="small" color="error" />
+                                  )}
+                                  {detalle.repeticiones > 0 && (
+                                    <Chip 
+                                      label={`${detalle.repeticiones} R`} 
+                                      size="small" 
+                                      sx={{ bgcolor: '#90EE90', color: '#2e7d32', fontWeight: 500 }}
+                                    />
+                                  )}
+                                  {detalle.tiempoEnSeg > 0 && (
+                                    <Chip label={formatTiempo(detalle.tiempoEnSeg)} size="small" color="info" />
+                                  )}
+                                  {detalle.carga > 0 && (
+                                    <Chip label={`${detalle.carga} kg`} size="small" color="secondary" />
+                                  )}
+                                </Box>
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{
+                                    ...(!isExerciseExpanded && {
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    })
+                                  }}
+                                >
+                                  {ejercicio?.descripcion}
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </Stack>
+                    )}
                   </Box>
                 )}
               </Stack>
             )}
           </Box>
-
-          {/* Navigation Controls */}
-          <Paper sx={{ p: 2, borderRadius: 0 }} elevation={3}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              {/* Alumno Navigation (Horizontal) */}
-              <Box display="flex" gap={1} alignItems="center">
-                <IconButton 
-                  onClick={handlePrevAlumno} 
-                  disabled={currentAlumnoIndex === 0}
-                  size="large"
-                  color="primary"
-                >
-                  <ArrowBackIcon />
-                </IconButton>
-                <Typography variant="body2">
-                  Alumno {currentAlumnoIndex + 1}/{planesActivos.length}
-                </Typography>
-                <IconButton 
-                  onClick={handleNextAlumno} 
-                  disabled={currentAlumnoIndex === planesActivos.length - 1}
-                  size="large"
-                  color="primary"
-                >
-                  <ArrowForwardIcon />
-                </IconButton>
-              </Box>
-
-              {/* Día Navigation (Vertical) */}
-              <Box display="flex" gap={1} alignItems="center">
-                <IconButton 
-                  onClick={handlePrevDia} 
-                  disabled={currentDiaIndex === 0}
-                  size="large"
-                  color="secondary"
-                >
-                  <ArrowUpwardIcon />
-                </IconButton>
-                <Typography variant="body2">
-                  Día {currentDiaIndex + 1}/{currentPlan?.dias?.length || 0}
-                </Typography>
-                <IconButton 
-                  onClick={handleNextDia} 
-                  disabled={currentDiaIndex === (currentPlan?.dias?.length || 1) - 1}
-                  size="large"
-                  color="secondary"
-                >
-                  <ArrowDownwardIcon />
-                </IconButton>
-              </Box>
-            </Box>
-          </Paper>
         </>
       )}
     </Box>
