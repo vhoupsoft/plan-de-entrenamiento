@@ -21,6 +21,10 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import { Tooltip } from '@mui/material';
 
 type Persona = {
   id: number;
@@ -46,11 +50,14 @@ export default function Personas() {
   const [usuario, setUsuario] = useState('');
   const [usuarioTouchedByUser, setUsuarioTouchedByUser] = useState(false);
   const [clave, setClave] = useState('');
+  const [clave2, setClave2] = useState('');
+  const [showClave, setShowClave] = useState(false);
+  const [showClave2, setShowClave2] = useState(false);
   const [esAlumno, setEsAlumno] = useState(false);
   const [esEntrenador, setEsEntrenador] = useState(false);
   const [alumnoActivo, setAlumnoActivo] = useState(true);
   const [entrenadorActivo, setEntrenadorActivo] = useState(true);
-  const [errors, setErrors] = useState<{ dni?: string; nombre?: string; usuario?: string; clave?: string }>({});
+  const [errors, setErrors] = useState<{ dni?: string; nombre?: string; usuario?: string; clave?: string; clave2?: string }>({});
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -88,7 +95,7 @@ export default function Personas() {
   const handleNombreChange = (value: string) => {
     setNombre(value);
     // Solo sugerir si estamos creando (no editando) y el usuario no tocó manualmente el campo
-    if (!editing && !usuarioTouchedByUser) {
+    if (!editing && (!usuarioTouchedByUser || (usuario || '').trim() === '')) {
       const suggested = generateUsername(value);
       setUsuario(suggested);
     }
@@ -105,6 +112,11 @@ export default function Personas() {
     setUsuario(value);
   };
 
+  const suggestUsername = () => {
+    const suggested = generateUsername(nombre);
+    if (suggested) setUsuario(suggested);
+  };
+
   const openCreate = () => {
     setEditing(null);
     setDni('');
@@ -112,6 +124,9 @@ export default function Personas() {
     setUsuario('');
     setUsuarioTouchedByUser(false);
     setClave('');
+    setClave2('');
+    setShowClave(false);
+    setShowClave2(false);
     setEsAlumno(false);
     setEsEntrenador(false);
     setAlumnoActivo(true);
@@ -127,6 +142,9 @@ export default function Personas() {
     setUsuario(p.usuario);
     setUsuarioTouchedByUser(false);
     setClave('');
+    setClave2('');
+    setShowClave(false);
+    setShowClave2(false);
     setEsAlumno(p.esAlumno);
     setEsEntrenador(p.esEntrenador);
     setAlumnoActivo(p.alumnoActivo);
@@ -142,11 +160,41 @@ export default function Personas() {
   };
 
   const validate = () => {
-    const err: { dni?: string; nombre?: string; usuario?: string; clave?: string } = {};
-    if (!dni || dni.trim().length === 0) err.dni = 'DNI requerido';
-    if (!nombre || nombre.trim().length === 0) err.nombre = 'Nombre requerido';
-    if (!usuario || usuario.trim().length === 0) err.usuario = 'Usuario requerido';
-    if (!editing && (!clave || clave.trim().length === 0)) err.clave = 'Clave requerida';
+    const err: { dni?: string; nombre?: string; usuario?: string; clave?: string; clave2?: string } = {};
+    const isSelfLimitedEdit = !!(editing && currentUser?.id === editing.id && !currentUser?.roles?.includes('Admin'));
+
+    if (isSelfLimitedEdit) {
+      if (!usuario || usuario.trim().length === 0) err.usuario = 'Usuario requerido';
+      const hasAnyClave = !!(clave && clave.trim().length > 0) || !!(clave2 && clave2.trim().length > 0);
+      if (hasAnyClave) {
+        if (!clave || clave.trim().length === 0) err.clave = 'Clave requerida';
+        if (!clave2 || clave2.trim().length === 0) err.clave2 = 'Confirmación requerida';
+        if (!err.clave && !err.clave2 && clave.trim() !== clave2.trim()) {
+          err.clave2 = 'Las claves no coinciden';
+        }
+      }
+    } else {
+      // Admin create/edit (o Admin autoedición con formulario completo)
+      if (!dni || dni.trim().length === 0) err.dni = 'DNI requerido';
+      if (!nombre || nombre.trim().length === 0) err.nombre = 'Nombre requerido';
+      if (!usuario || usuario.trim().length === 0) err.usuario = 'Usuario requerido';
+      if (!editing) {
+        if (!clave || clave.trim().length === 0) err.clave = 'Clave requerida';
+        if (!clave2 || clave2.trim().length === 0) err.clave2 = 'Confirmación requerida';
+        if (!err.clave && !err.clave2 && clave.trim() !== clave2.trim()) {
+          err.clave2 = 'Las claves no coinciden';
+        }
+      } else {
+        const hasAnyClave = !!(clave && clave.trim().length > 0) || !!(clave2 && clave2.trim().length > 0);
+        if (hasAnyClave) {
+          if (!clave || clave.trim().length === 0) err.clave = 'Clave requerida';
+          if (!clave2 || clave2.trim().length === 0) err.clave2 = 'Confirmación requerida';
+          if (!err.clave && !err.clave2 && clave.trim() !== clave2.trim()) {
+            err.clave2 = 'Las claves no coinciden';
+          }
+        }
+      }
+    }
     setErrors(err);
     return Object.keys(err).length === 0;
   };
@@ -155,16 +203,23 @@ export default function Personas() {
     if (!validate()) return;
     setIsSaving(true);
     try {
-      const data = {
-        dni: dni.trim(),
-        nombre: nombre.trim(),
-        usuario: usuario.trim(),
-        ...(clave && { clave: clave.trim() }),
-        esAlumno,
-        esEntrenador,
-        alumnoActivo,
-        entrenadorActivo,
-      };
+      const isSelfLimitedEdit = !!(editing && currentUser?.id === editing.id && !currentUser?.roles?.includes('Admin'));
+
+      const data = isSelfLimitedEdit
+        ? {
+            usuario: usuario.trim(),
+            ...(clave && { clave: clave.trim() }),
+          }
+        : {
+            dni: dni.trim(),
+            nombre: nombre.trim(),
+            usuario: usuario.trim(),
+            ...(clave && { clave: clave.trim() }),
+            esAlumno,
+            esEntrenador,
+            alumnoActivo,
+            entrenadorActivo,
+          };
 
       if (editing) {
         await api.put(`/personas/${editing.id}`, data);
@@ -259,7 +314,7 @@ export default function Personas() {
                   .map((it) => (
                   <tr key={it.id} style={{ borderTop: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>
-                      {currentUser?.roles?.includes('Admin') && (
+                      {currentUser?.roles?.includes('Admin') ? (
                         <>
                           <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
                             <EditIcon fontSize="small" />
@@ -268,6 +323,13 @@ export default function Personas() {
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </>
+                      ) : (
+                        // Permitir edición limitada (usuario/clave) al propio usuario no Admin (Alumno o Entrenador)
+                        (currentUser?.id === it.id && !currentUser?.roles?.includes('Admin')) ? (
+                          <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar mis datos">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        ) : null
                       )}
                     </td>
                     {currentUser?.roles?.includes('Admin') && (
@@ -298,9 +360,74 @@ export default function Personas() {
       </Snackbar>
 
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
-        <DialogTitle>{editing ? 'Editar persona' : 'Nueva persona'}</DialogTitle>
+        <DialogTitle>{editing ? (currentUser?.id === editing.id && !currentUser?.roles?.includes('Admin') ? 'Editar mi usuario' : 'Editar persona') : 'Nueva persona'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {/* Edición limitada para el propio usuario (Alumno o Entrenador no Admin) */}
+            {editing && currentUser?.id === editing.id && !currentUser?.roles?.includes('Admin') ? (
+              <>
+                <TextField
+                  label="DNI"
+                  value={dni}
+                  disabled
+                  fullWidth
+                />
+                <TextField
+                  label="Nombre"
+                  value={nombre}
+                  disabled
+                  fullWidth
+                />
+                <TextField
+                  label="Usuario"
+                  value={usuario}
+                  onChange={(ev) => handleUsuarioChange(ev.target.value)}
+                  InputProps={{
+                    endAdornment: (
+                      <Tooltip title="Sugerir usuario por nombre">
+                        <IconButton onClick={suggestUsername} edge="end" aria-label="sugerir usuario">
+                          <AutoFixHighIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )
+                  }}
+                  fullWidth
+                />
+                <TextField
+                  label={"Nueva clave (opcional)"}
+                  type={showClave ? 'text' : 'password'}
+                  value={clave}
+                  onChange={(ev) => setClave(ev.target.value)}
+                  error={!!errors.clave}
+                  helperText={errors.clave}
+                  InputProps={{
+                    endAdornment: (
+                      <IconButton onClick={() => setShowClave((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
+                        {showClave ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    )
+                  }}
+                  fullWidth
+                />
+                <TextField
+                  label={"Confirmar nueva clave"}
+                  type={showClave2 ? 'text' : 'password'}
+                  value={clave2}
+                  onChange={(ev) => setClave2(ev.target.value)}
+                  error={!!errors.clave2}
+                  helperText={errors.clave2}
+                  InputProps={{
+                    endAdornment: (
+                      <IconButton onClick={() => setShowClave2((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
+                        {showClave2 ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    )
+                  }}
+                  fullWidth
+                />
+              </>
+            ) : (
+              <>
             <TextField
               label="DNI"
               value={dni}
@@ -327,16 +454,49 @@ export default function Personas() {
               error={!!errors.usuario}
               helperText={errors.usuario}
               required
+              InputProps={{
+                endAdornment: (
+                  <Tooltip title="Sugerir usuario por nombre">
+                    <IconButton onClick={suggestUsername} edge="end" aria-label="sugerir usuario">
+                      <AutoFixHighIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )
+              }}
               fullWidth
             />
             <TextField
               label={editing ? "Nueva clave (dejar vacío para no cambiar)" : "Clave"}
-              type="password"
+              type={showClave ? 'text' : 'password'}
               value={clave}
               onChange={(ev) => setClave(ev.target.value)}
               error={!!errors.clave}
               helperText={errors.clave}
               required={!editing}
+              InputProps={{
+                endAdornment: (
+                  <IconButton onClick={() => setShowClave((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
+                    {showClave ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                )
+              }}
+              fullWidth
+            />
+            <TextField
+              label={editing ? "Confirmar nueva clave" : "Confirmar clave"}
+              type={showClave2 ? 'text' : 'password'}
+              value={clave2}
+              onChange={(ev) => setClave2(ev.target.value)}
+              error={!!errors.clave2}
+              helperText={errors.clave2}
+              required={!editing}
+              InputProps={{
+                endAdornment: (
+                  <IconButton onClick={() => setShowClave2((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
+                    {showClave2 ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                )
+              }}
               fullWidth
             />
             <FormControlLabel
@@ -358,6 +518,8 @@ export default function Personas() {
                 control={<Switch checked={entrenadorActivo} onChange={(e) => setEntrenadorActivo(e.target.checked)} />}
                 label="Entrenador activo"
               />
+            )}
+              </>
             )}
           </Stack>
         </DialogContent>

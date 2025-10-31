@@ -65,7 +65,7 @@ const Header: React.FC = () => {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
           >
-            <MenuItem onClick={() => go('/')}>Panel Principal</MenuItem>
+            <MenuItem onClick={() => go('/?reset=1')}>Panel Principal</MenuItem>
             <MenuItem onClick={() => go('/ejercicios')}>Ejercicios</MenuItem>
             <MenuItem onClick={() => go('/etapas')}>Etapas</MenuItem>
             <MenuItem onClick={() => go('/personas')}>Personas</MenuItem>

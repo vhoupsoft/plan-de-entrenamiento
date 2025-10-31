@@ -26,6 +26,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import { useLocation } from 'react-router-dom';
 
 type Persona = {
   id: number;
@@ -83,6 +84,7 @@ type UserMode = 'alumno' | 'entrenador';
 
 export default function Dashboard() {
   const { user: currentUser } = useAuth();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<UserMode | null>(null);
   const [showModeSelector, setShowModeSelector] = useState(false);
@@ -153,15 +155,49 @@ export default function Dashboard() {
 
   useEffect(() => {
     initializeDashboard();
-  }, [currentUser]);
+  }, [currentUser, location.search]);
 
   const initializeDashboard = async () => {
     setLoading(true);
     
     // Fetch ejercicios y etapas
     await Promise.all([fetchEjercicios(), fetchEtapas()]);
-    // Intentar restaurar estado previo guardado
-    const saved = loadPersistentState();
+    // Revisar si hay reinicio forzado vía querystring (?reset=1)
+    const params = new URLSearchParams(location.search);
+    const shouldReset = params.get('reset') === '1';
+    // Intentar restaurar estado previo guardado sólo si no se solicitó reset
+    const saved = shouldReset ? null : loadPersistentState();
+
+    if (shouldReset) {
+      try { localStorage.removeItem(getStorageKey()); } catch {}
+      // Limpiar estado local relevante
+      setMode(null);
+      setShowModeSelector(false);
+      setShowAlumnoSelector(false);
+      setAlumnos([]);
+      setSelectedAlumnoIds([]);
+      setPlanesActivos([]);
+      setCurrentAlumnoIndex(0);
+      setCurrentDiaIndex(0);
+      setExpandedEtapas(new Set());
+      setExpandedExercises(new Set());
+      setAlumnoStates(new Map());
+      setAlumnoSearch('');
+
+      // Iniciar flujo fresco según roles
+      if (isAlumno && !isEntrenador) {
+        setMode('alumno');
+        await loadAlumnoPlans([currentUser!.id]);
+      } else if (isEntrenador && !isAlumno) {
+        setMode('entrenador');
+        await fetchAlumnos();
+        setShowAlumnoSelector(true);
+      } else if (isAlumno && isEntrenador) {
+        setShowModeSelector(true);
+      }
+      setLoading(false);
+      return;
+    }
 
     if (saved) {
       // Restaurar modo y selección si aplica
@@ -607,16 +643,6 @@ export default function Dashboard() {
                   <Typography variant="body2" color="text.secondary">
                     Entrenador: {currentPlan?.entrenador.nombre}
                   </Typography>
-                  {mode === 'entrenador' && (
-                    <Button
-                      onClick={() => { setShowAlumnoSelector(true); fetchAlumnos(); }}
-                      size="small"
-                      variant="outlined"
-                      sx={{ mt: 0.5 }}
-                    >
-                      Seleccionar alumnos
-                    </Button>
-                  )}
                 </Box>
               </Box>
               

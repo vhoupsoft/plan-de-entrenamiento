@@ -38,6 +38,10 @@ type Persona = {
   id: number;
   nombre: string;
   dni: string;
+  esAlumno?: boolean;
+  esEntrenador?: boolean;
+  alumnoActivo?: boolean;
+  entrenadorActivo?: boolean;
 };
 
 type Ejercicio = {
@@ -961,7 +965,8 @@ export default function Planes() {
                   <em>Seleccionar alumno</em>
                 </MenuItem>
                 {personas
-                  .filter((p) => p.id !== entrenadorId)
+                  .filter((p) => p.esAlumno !== false) // si viene undefined, lo mostramos; si existe, true
+                  .filter((p) => p.alumnoActivo !== false)
                   .map((p) => (
                     <MenuItem key={p.id} value={p.id}>
                       {p.nombre} ({p.dni})
@@ -986,7 +991,8 @@ export default function Planes() {
                   <em>Seleccionar entrenador</em>
                 </MenuItem>
                 {personas
-                  .filter((p) => p.id !== alumnoId)
+                  .filter((p) => p.esEntrenador !== false)
+                  .filter((p) => p.entrenadorActivo !== false)
                   .map((p) => (
                     <MenuItem key={p.id} value={p.id}>
                       {p.nombre} ({p.dni})
