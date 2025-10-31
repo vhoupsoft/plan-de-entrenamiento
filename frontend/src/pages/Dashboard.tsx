@@ -581,7 +581,7 @@ export default function Dashboard() {
                                       <Chip 
                                         label={`${detalle.repeticiones} R`} 
                                         size="small" 
-                                        sx={{ bgcolor: '#90EE90', color: '#2e7d32', fontWeight: 500 }}
+                                        sx={{ bgcolor: '#4CAF50', color: '#fff', fontWeight: 500 }}
                                       />
                                     )}
                                     {detalle.tiempoEnSeg > 0 && (
@@ -671,7 +671,7 @@ export default function Dashboard() {
                                     <Chip 
                                       label={`${detalle.repeticiones} R`} 
                                       size="small" 
-                                      sx={{ bgcolor: '#90EE90', color: '#2e7d32', fontWeight: 500 }}
+                                      sx={{ bgcolor: '#4CAF50', color: '#fff', fontWeight: 500 }}
                                     />
                                   )}
                                   {detalle.tiempoEnSeg > 0 && (
