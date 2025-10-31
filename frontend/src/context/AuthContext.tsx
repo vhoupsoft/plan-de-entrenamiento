@@ -26,7 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('token');
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // try to refresh user from server
+      // Always refresh user from server to get latest roles
       api
         .get('/auth/me')
         .then((res) => {

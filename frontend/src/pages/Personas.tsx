@@ -44,7 +44,7 @@ export default function Personas() {
   const [dni, setDni] = useState('');
   const [nombre, setNombre] = useState('');
   const [usuario, setUsuario] = useState('');
-  const [usuarioManuallyEdited, setUsuarioManuallyEdited] = useState(false);
+  const [usuarioTouchedByUser, setUsuarioTouchedByUser] = useState(false);
   const [clave, setClave] = useState('');
   const [esAlumno, setEsAlumno] = useState(false);
   const [esEntrenador, setEsEntrenador] = useState(false);
@@ -87,15 +87,22 @@ export default function Personas() {
 
   const handleNombreChange = (value: string) => {
     setNombre(value);
-    if (!usuarioManuallyEdited && !editing) {
+    // Solo sugerir si estamos creando (no editando) y el usuario no tocó manualmente el campo
+    if (!editing && !usuarioTouchedByUser) {
       const suggested = generateUsername(value);
       setUsuario(suggested);
     }
   };
 
+  const handleUsuarioFocus = () => {
+    // Cuando el usuario hace foco en el campo usuario, marcamos que lo tocó
+    if (!editing) {
+      setUsuarioTouchedByUser(true);
+    }
+  };
+
   const handleUsuarioChange = (value: string) => {
     setUsuario(value);
-    setUsuarioManuallyEdited(true);
   };
 
   const openCreate = () => {
@@ -103,7 +110,7 @@ export default function Personas() {
     setDni('');
     setNombre('');
     setUsuario('');
-    setUsuarioManuallyEdited(false);
+    setUsuarioTouchedByUser(false);
     setClave('');
     setEsAlumno(false);
     setEsEntrenador(false);
@@ -118,7 +125,7 @@ export default function Personas() {
     setDni(p.dni);
     setNombre(p.nombre);
     setUsuario(p.usuario);
-    setUsuarioManuallyEdited(true);
+    setUsuarioTouchedByUser(false);
     setClave('');
     setEsAlumno(p.esAlumno);
     setEsEntrenador(p.esEntrenador);
@@ -307,6 +314,7 @@ export default function Personas() {
               label="Usuario"
               value={usuario}
               onChange={(ev) => handleUsuarioChange(ev.target.value)}
+              onFocus={handleUsuarioFocus}
               error={!!errors.usuario}
               helperText={errors.usuario}
               required
