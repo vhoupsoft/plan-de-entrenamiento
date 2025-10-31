@@ -90,10 +90,7 @@ export default function Ejercicios() {
     setOpen(true);
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const uploadFile = async (file: File) => {
     // Validar tipo de archivo
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/gif', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
@@ -121,7 +118,8 @@ export default function Ejercicios() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al subir la imagen');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al subir la imagen');
       }
 
       const data = await response.json();
@@ -131,13 +129,47 @@ export default function Ejercicios() {
       currentImages.push(data.url);
       setImagenes(currentImages.join(','));
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      alert('Error al subir la imagen');
+      alert(error.message || 'Error al subir la imagen');
     } finally {
       setUploadingImage(false);
-      // Reset input
-      event.target.value = '';
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    // Reset input
+    event.target.value = '';
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      await uploadFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          await uploadFile(file);
+          break;
+        }
+      }
     }
   };
 
@@ -307,15 +339,68 @@ export default function Ejercicios() {
               multiline
               minRows={2}
             />
-            <Box>
+            <Box
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onPaste={handlePaste}
+              tabIndex={0}
+              sx={{
+                outline: 'none',
+                '&:focus-visible': {
+                  outline: '2px solid #1976d2',
+                  outlineOffset: 2
+                }
+              }}
+            >
               <Typography variant="subtitle2" gutterBottom>Imágenes</Typography>
-              <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
+              
+              {/* Área de drop */}
+              <Box
+                sx={{
+                  border: '2px dashed #ccc',
+                  borderRadius: 2,
+                  p: 3,
+                  mb: 2,
+                  textAlign: 'center',
+                  bgcolor: '#fafafa',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    borderColor: '#1976d2',
+                    bgcolor: '#f0f7ff'
+                  }
+                }}
+                component="label"
+              >
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {uploadingImage ? 'Subiendo...' : 'Arrastrá y soltá una imagen aquí, pegala (Ctrl+V), o hacé clic para seleccionar'}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  disabled={uploadingImage}
+                  component="span"
+                  size="small"
+                  sx={{ mt: 1 }}
+                >
+                  Seleccionar archivo
+                </Button>
+                <input
+                  type="file"
+                  hidden
+                  accept=".jpg,.jpeg,.gif,.png,image/jpeg,image/jpg,image/gif,image/png"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                />
+              </Box>
+
+              {/* Galería de imágenes */}
+              <Box display="flex" flexWrap="wrap" gap={2} mb={1}>
                 {imagenes && imagenes.split(',').filter(Boolean).map((url, idx) => (
                   <Box key={idx} position="relative" display="inline-block">
                     <img 
                       src={url} 
                       alt={`Imagen ${idx + 1}`}
-                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4 }}
+                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd' }}
                       onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
                     />
                     <IconButton
@@ -337,21 +422,8 @@ export default function Ejercicios() {
                   </Box>
                 ))}
               </Box>
-              <Button
-                variant="outlined"
-                component="label"
-                disabled={uploadingImage}
-                startIcon={uploadingImage ? <CircularProgress size={20} /> : null}
-              >
-                {uploadingImage ? 'Subiendo...' : 'Subir imagen'}
-                <input
-                  type="file"
-                  hidden
-                  accept=".jpg,.jpeg,.gif,.png"
-                  onChange={handleImageUpload}
-                />
-              </Button>
-              <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+              
+              <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
                 Formatos permitidos: JPG, JPEG, GIF, PNG (máx. 5MB)
               </Typography>
             </Box>

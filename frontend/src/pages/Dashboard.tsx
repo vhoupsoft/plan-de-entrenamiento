@@ -104,6 +104,9 @@ export default function Dashboard() {
   
   // Estado por alumno: guarda diaIndex y etapas expandidas para cada alumno
   const [alumnoStates, setAlumnoStates] = useState<Map<number, { diaIndex: number, expandedEtapas: Set<number> }>>(new Map());
+  
+  // Flag para evitar reinicialización cuando AuthContext revalida el usuario
+  const [initialized, setInitialized] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
@@ -156,8 +159,14 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    initializeDashboard();
-  }, [currentUser, location.search]);
+    // Solo inicializar si no está inicializado o si hay reset en la URL
+    const params = new URLSearchParams(location.search);
+    const shouldReset = params.get('reset') === '1';
+    
+    if (!initialized || shouldReset) {
+      initializeDashboard();
+    }
+  }, [currentUser, location.search, initialized]);
 
   const initializeDashboard = async () => {
     setLoading(true);
@@ -197,6 +206,7 @@ export default function Dashboard() {
       } else if (isAlumno && isEntrenador) {
         setShowModeSelector(true);
       }
+      setInitialized(true);
       setLoading(false);
       return;
     }
@@ -244,6 +254,7 @@ export default function Dashboard() {
       }
     }
     
+    setInitialized(true);
     setLoading(false);
   };
 

@@ -37,7 +37,7 @@ const upload = multer({
 });
 
 // Ruta para subir imagen de ejercicio
-router.post('/ejercicio-imagen', requireAuth, requireRole('Admin', 'Entrenador'), upload.single('imagen'), (req, res) => {
+router.post('/ejercicio-imagen', requireAuth, requireRole('Admin', 'Entrenador'), upload.single('image'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se subió ningún archivo' });
