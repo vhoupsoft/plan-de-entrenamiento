@@ -40,6 +40,7 @@ export default function Ejercicios() {
   const [descripcion, setDescripcion] = useState('');
   const [imagenes, setImagenes] = useState('');
   const [links, setLinks] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [errors, setErrors] = useState<{ cod?: string }>({});
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -87,6 +88,63 @@ export default function Ejercicios() {
     setLinks(e.links || '');
     setErrors({});
     setOpen(true);
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/gif', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Solo se permiten imágenes JPG, JPEG, GIF o PNG');
+      return;
+    }
+
+    // Validar tamaño (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no debe superar los 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await window.fetch('/api/upload/ejercicio-imagen', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al subir la imagen');
+      }
+
+      const data = await response.json();
+      
+      // Agregar la URL al array de imágenes
+      const currentImages = imagenes ? imagenes.split(',').filter(Boolean) : [];
+      currentImages.push(data.url);
+      setImagenes(currentImages.join(','));
+
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Error al subir la imagen');
+    } finally {
+      setUploadingImage(false);
+      // Reset input
+      event.target.value = '';
+    }
+  };
+
+  const handleDeleteImage = (urlToDelete: string) => {
+    const currentImages = imagenes.split(',').filter(Boolean);
+    const updatedImages = currentImages.filter(url => url !== urlToDelete);
+    setImagenes(updatedImages.join(','));
   };
 
   const close = () => {
@@ -249,16 +307,54 @@ export default function Ejercicios() {
               multiline
               minRows={2}
             />
-            <TextField
-              label="Imágenes (URLs separadas por comas)"
-              value={imagenes}
-              onChange={(ev) => setImagenes(ev.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-              placeholder="https://ejemplo.com/imagen1.jpg, https://ejemplo.com/imagen2.gif"
-              helperText="Ingresá URLs de imágenes JPG o GIF separadas por comas"
-            />
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>Imágenes</Typography>
+              <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
+                {imagenes && imagenes.split(',').filter(Boolean).map((url, idx) => (
+                  <Box key={idx} position="relative" display="inline-block">
+                    <img 
+                      src={url} 
+                      alt={`Imagen ${idx + 1}`}
+                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4 }}
+                      onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteImage(url)}
+                      sx={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        bgcolor: 'error.main',
+                        color: 'white',
+                        '&:hover': { bgcolor: 'error.dark' },
+                        width: 24,
+                        height: 24,
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+              <Button
+                variant="outlined"
+                component="label"
+                disabled={uploadingImage}
+                startIcon={uploadingImage ? <CircularProgress size={20} /> : null}
+              >
+                {uploadingImage ? 'Subiendo...' : 'Subir imagen'}
+                <input
+                  type="file"
+                  hidden
+                  accept=".jpg,.jpeg,.gif,.png"
+                  onChange={handleImageUpload}
+                />
+              </Button>
+              <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+                Formatos permitidos: JPG, JPEG, GIF, PNG (máx. 5MB)
+              </Typography>
+            </Box>
             <TextField
               label="Links de videos/sitios (URLs separadas por comas)"
               value={links}
