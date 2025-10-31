@@ -339,93 +339,88 @@ export default function Ejercicios() {
               multiline
               minRows={2}
             />
-            <Box
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onPaste={handlePaste}
-              tabIndex={0}
-              sx={{
-                outline: 'none',
-                '&:focus-visible': {
-                  outline: '2px solid #1976d2',
-                  outlineOffset: 2
-                }
-              }}
-            >
+            <Box>
               <Typography variant="subtitle2" gutterBottom>Imágenes</Typography>
               
-              {/* Área de drop */}
+              {/* Galería de imágenes existentes */}
+              {imagenes && imagenes.split(',').filter(Boolean).length > 0 && (
+                <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
+                  {imagenes.split(',').filter(Boolean).map((url, idx) => (
+                    <Box key={idx} position="relative" display="inline-block">
+                      <img 
+                        src={url} 
+                        alt={`Imagen ${idx + 1}`}
+                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd' }}
+                        onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteImage(url)}
+                        sx={{
+                          position: 'absolute',
+                          top: -8,
+                          right: -8,
+                          bgcolor: 'error.main',
+                          color: 'white',
+                          '&:hover': { bgcolor: 'error.dark' },
+                          width: 24,
+                          height: 24,
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              
+              {/* Área de drop y upload */}
               <Box
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onPaste={handlePaste}
+                tabIndex={0}
                 sx={{
                   border: '2px dashed #ccc',
                   borderRadius: 2,
-                  p: 3,
-                  mb: 2,
+                  p: 2,
                   textAlign: 'center',
                   bgcolor: '#fafafa',
-                  cursor: 'pointer',
                   transition: 'all 0.2s',
+                  outline: 'none',
                   '&:hover': {
+                    borderColor: '#1976d2',
+                    bgcolor: '#f0f7ff'
+                  },
+                  '&:focus-visible': {
                     borderColor: '#1976d2',
                     bgcolor: '#f0f7ff'
                   }
                 }}
-                component="label"
               >
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {uploadingImage ? 'Subiendo...' : 'Arrastrá y soltá una imagen aquí, pegala (Ctrl+V), o hacé clic para seleccionar'}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {uploadingImage ? 'Subiendo...' : 'Arrastrá una imagen, pegala (Ctrl+V) o'}
                 </Typography>
                 <Button
                   variant="outlined"
+                  component="label"
                   disabled={uploadingImage}
-                  component="span"
                   size="small"
-                  sx={{ mt: 1 }}
+                  startIcon={uploadingImage ? <CircularProgress size={16} /> : null}
                 >
-                  Seleccionar archivo
+                  {uploadingImage ? 'Subiendo...' : 'Seleccionar archivo'}
+                  <input
+                    type="file"
+                    hidden
+                    accept=".jpg,.jpeg,.gif,.png,image/jpeg,image/jpg,image/gif,image/png"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                  />
                 </Button>
-                <input
-                  type="file"
-                  hidden
-                  accept=".jpg,.jpeg,.gif,.png,image/jpeg,image/jpg,image/gif,image/png"
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                />
+                <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+                  JPG, JPEG, GIF, PNG (máx. 5MB)
+                </Typography>
               </Box>
-
-              {/* Galería de imágenes */}
-              <Box display="flex" flexWrap="wrap" gap={2} mb={1}>
-                {imagenes && imagenes.split(',').filter(Boolean).map((url, idx) => (
-                  <Box key={idx} position="relative" display="inline-block">
-                    <img 
-                      src={url} 
-                      alt={`Imagen ${idx + 1}`}
-                      style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 4, border: '1px solid #ddd' }}
-                      onError={(e) => { e.currentTarget.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteImage(url)}
-                      sx={{
-                        position: 'absolute',
-                        top: -8,
-                        right: -8,
-                        bgcolor: 'error.main',
-                        color: 'white',
-                        '&:hover': { bgcolor: 'error.dark' },
-                        width: 24,
-                        height: 24,
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Box>
-                ))}
-              </Box>
-              
-              <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
-                Formatos permitidos: JPG, JPEG, GIF, PNG (máx. 5MB)
-              </Typography>
             </Box>
             <TextField
               label="Links de videos/sitios (URLs separadas por comas)"

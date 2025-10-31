@@ -798,14 +798,19 @@ export default function Dashboard() {
                                             Imágenes:
                                           </Typography>
                                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                            {ejercicio.imagenes.split(',').map((url, idx) => (
-                                              <img 
-                                                key={idx} 
-                                                src={url.trim()} 
-                                                alt={`${ejercicio.codEjercicio} ${idx + 1}`}
-                                                style={{ maxWidth: '150px', maxHeight: '150px', borderRadius: '4px', objectFit: 'cover' }}
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                              />
+                                            {ejercicio.imagenes.split(',').filter(u => u.trim()).map((url, idx) => (
+                                              <Box key={idx} sx={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <img 
+                                                  src={url.trim()} 
+                                                  alt={`${ejercicio.codEjercicio} ${idx + 1}`}
+                                                  style={{ width: '150px', height: '150px', objectFit: 'cover', display: 'block' }}
+                                                  onError={(e) => { 
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                    console.error('Error loading image:', url.trim());
+                                                  }}
+                                                />
+                                              </Box>
                                             ))}
                                           </Box>
                                         </Box>
@@ -932,14 +937,19 @@ export default function Dashboard() {
                                           Imágenes:
                                         </Typography>
                                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                          {ejercicio.imagenes.split(',').map((url, idx) => (
-                                            <img 
-                                              key={idx} 
-                                              src={url.trim()} 
-                                              alt={`${ejercicio.codEjercicio} ${idx + 1}`}
-                                              style={{ maxWidth: '150px', maxHeight: '150px', borderRadius: '4px', objectFit: 'cover' }}
-                                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                            />
+                                          {ejercicio.imagenes.split(',').filter(u => u.trim()).map((url, idx) => (
+                                            <Box key={idx} sx={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                                              <img 
+                                                src={url.trim()} 
+                                                alt={`${ejercicio.codEjercicio} ${idx + 1}`}
+                                                style={{ width: '150px', height: '150px', objectFit: 'cover', display: 'block' }}
+                                                onError={(e) => { 
+                                                  const target = e.target as HTMLImageElement;
+                                                  target.style.display = 'none';
+                                                  console.error('Error loading image:', url.trim());
+                                                }}
+                                              />
+                                            </Box>
                                           ))}
                                         </Box>
                                       </Box>
