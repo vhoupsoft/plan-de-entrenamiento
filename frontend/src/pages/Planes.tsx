@@ -661,35 +661,27 @@ export default function Planes() {
                 No hay ejercicios agregados aún.
               </Typography>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #eee' }}>
-                    <th style={{ textAlign: 'left', padding: 8 }}>Orden</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>Ejercicio</th>
-                    <th style={{ textAlign: 'center', padding: 8 }}>Series</th>
-                    <th style={{ textAlign: 'center', padding: 8 }}>Reps</th>
-                    <th style={{ textAlign: 'center', padding: 8 }}>Tiempo</th>
-                    <th style={{ textAlign: 'center', padding: 8 }}>Carga</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>Etapa</th>
-                    <th style={{ textAlign: 'right', padding: 8 }}>Acciones</th>
-                  </tr>
-                </thead>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #eee' }}>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Orden</th>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Ejercicio</th>
+                      <th style={{ textAlign: 'center', padding: 8 }}>Series</th>
+                      <th style={{ textAlign: 'center', padding: 8 }}>Reps</th>
+                      <th style={{ textAlign: 'center', padding: 8 }}>Tiempo</th>
+                      <th style={{ textAlign: 'center', padding: 8 }}>Carga</th>
+                      <th style={{ textAlign: 'left', padding: 8 }}>Etapa</th>
+                    </tr>
+                  </thead>
                 <tbody>
                   {detalles.sort((a, b) => a.orden - b.orden).map((det) => {
                     const ej = ejercicios.find((e) => e.id === det.ejercicioId);
                     const et = etapas.find((e) => e.id === det.etapaId);
                     return (
                       <tr key={det.id} style={{ borderTop: '1px solid #eee' }}>
-                        <td style={{ padding: 8 }}>{det.orden}</td>
                         <td style={{ padding: 8 }}>
-                          {ej ? `${ej.codEjercicio}` : `Ejercicio ${det.ejercicioId}`}
-                        </td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.series}</td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.repeticiones}</td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.tiempoEnSeg}s</td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.carga}kg</td>
-                        <td style={{ padding: 8 }}>{et ? et.descripcion : '-'}</td>
-                        <td style={{ padding: 8, textAlign: 'right' }}>
                           {canEdit && (
                             <>
                               <IconButton size="small" onClick={() => openDetalleEdit(det)}>
@@ -701,11 +693,21 @@ export default function Planes() {
                             </>
                           )}
                         </td>
+                        <td style={{ padding: 8 }}>{det.orden}</td>
+                        <td style={{ padding: 8 }}>
+                          {ej ? `${ej.codEjercicio}` : `Ejercicio ${det.ejercicioId}`}
+                        </td>
+                        <td style={{ padding: 8, textAlign: 'center' }}>{det.series}</td>
+                        <td style={{ padding: 8, textAlign: 'center' }}>{det.repeticiones}</td>
+                        <td style={{ padding: 8, textAlign: 'center' }}>{det.tiempoEnSeg}s</td>
+                        <td style={{ padding: 8, textAlign: 'center' }}>{det.carga}kg</td>
+                        <td style={{ padding: 8 }}>{et ? et.descripcion : '-'}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+              </Box>
             )}
           </Box>
         </DialogContent>
@@ -868,36 +870,25 @@ export default function Planes() {
           ) : filteredItems.length === 0 ? (
             <Typography>No hay planes.</Typography>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Alumno</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Entrenador</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Desde</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Hasta</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Estado</th>
-                  <th style={{ textAlign: 'right', padding: 8 }}>Acciones</th>
-                </tr>
-              </thead>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Alumno</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Entrenador</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Desde</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Hasta</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Estado</th>
+                  </tr>
+                </thead>
               <tbody>
                 {filteredItems
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((it) => (
                     <tr key={it.id} style={{ borderTop: '1px solid #eee' }}>
-                      <td style={{ padding: 8 }}>{it.id}</td>
-                      <td style={{ padding: 8 }}>{it.alumno.nombre}</td>
-                      <td style={{ padding: 8 }}>{it.entrenador.nombre}</td>
-                      <td style={{ padding: 8, textAlign: 'center' }}>{formatDate(it.fechaDesde)}</td>
-                      <td style={{ padding: 8, textAlign: 'center' }}>{formatDate(it.fechaHasta)}</td>
-                      <td style={{ padding: 8, textAlign: 'center' }}>
-                        {it.activo ? (
-                          <Chip label="Activo" color="success" size="small" />
-                        ) : (
-                          <Chip label="Inactivo" size="small" />
-                        )}
-                      </td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>
+                      <td style={{ padding: 8 }}>
                         <IconButton size="small" onClick={() => openDetailView(it)} aria-label="ver detalle" title="Ver detalle">
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
@@ -917,10 +908,23 @@ export default function Planes() {
                           </>
                         )}
                       </td>
+                      <td style={{ padding: 8 }}>{it.id}</td>
+                      <td style={{ padding: 8 }}>{it.alumno.nombre}</td>
+                      <td style={{ padding: 8 }}>{it.entrenador.nombre}</td>
+                      <td style={{ padding: 8, textAlign: 'center' }}>{formatDate(it.fechaDesde)}</td>
+                      <td style={{ padding: 8, textAlign: 'center' }}>{formatDate(it.fechaHasta)}</td>
+                      <td style={{ padding: 8, textAlign: 'center' }}>
+                        {it.activo ? (
+                          <Chip label="Activo" color="success" size="small" />
+                        ) : (
+                          <Chip label="Inactivo" size="small" />
+                        )}
+                      </td>
                     </tr>
                   ))}
               </tbody>
             </table>
+            </Box>
           )}
         </Box>
       </Paper>

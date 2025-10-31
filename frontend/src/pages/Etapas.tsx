@@ -190,24 +190,22 @@ export default function Etapas() {
           ) : filteredItems.length === 0 ? (
             <div>No hay etapas.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Descripción</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Orden</th>
-                  <th style={{ textAlign: 'right', padding: 8 }}>Acciones</th>
-                </tr>
-              </thead>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Descripción</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Orden</th>
+                  </tr>
+                </thead>
               <tbody>
                 {filteredItems
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((it) => (
                     <tr key={it.id} style={{ borderTop: '1px solid #eee' }}>
-                      <td style={{ padding: 8 }}>{it.id}</td>
-                      <td style={{ padding: 8 }}>{it.descripcion}</td>
-                      <td style={{ padding: 8, textAlign: 'center' }}>{it.orden}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>
+                      <td style={{ padding: 8 }}>
                         {canEdit && (
                           <>
                             <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
@@ -219,10 +217,14 @@ export default function Etapas() {
                           </>
                         )}
                       </td>
+                      <td style={{ padding: 8 }}>{it.id}</td>
+                      <td style={{ padding: 8 }}>{it.descripcion}</td>
+                      <td style={{ padding: 8, textAlign: 'center' }}>{it.orden}</td>
                     </tr>
                   ))}
               </tbody>
             </table>
+            </Box>
           )}
         </Box>
       </Paper>

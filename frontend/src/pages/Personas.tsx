@@ -44,6 +44,7 @@ export default function Personas() {
   const [dni, setDni] = useState('');
   const [nombre, setNombre] = useState('');
   const [usuario, setUsuario] = useState('');
+  const [usuarioManuallyEdited, setUsuarioManuallyEdited] = useState(false);
   const [clave, setClave] = useState('');
   const [esAlumno, setEsAlumno] = useState(false);
   const [esEntrenador, setEsEntrenador] = useState(false);
@@ -76,11 +77,33 @@ export default function Personas() {
     fetch();
   }, []);
 
+  const generateUsername = (fullName: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length < 2) return '';
+    const firstName = parts[0];
+    const lastName = parts[parts.length - 1];
+    return firstName.charAt(0).toLowerCase() + lastName.charAt(0).toUpperCase() + lastName.slice(1);
+  };
+
+  const handleNombreChange = (value: string) => {
+    setNombre(value);
+    if (!usuarioManuallyEdited && !editing) {
+      const suggested = generateUsername(value);
+      setUsuario(suggested);
+    }
+  };
+
+  const handleUsuarioChange = (value: string) => {
+    setUsuario(value);
+    setUsuarioManuallyEdited(true);
+  };
+
   const openCreate = () => {
     setEditing(null);
     setDni('');
     setNombre('');
     setUsuario('');
+    setUsuarioManuallyEdited(false);
     setClave('');
     setEsAlumno(false);
     setEsEntrenador(false);
@@ -95,6 +118,7 @@ export default function Personas() {
     setDni(p.dni);
     setNombre(p.nombre);
     setUsuario(p.usuario);
+    setUsuarioManuallyEdited(true);
     setClave('');
     setEsAlumno(p.esAlumno);
     setEsEntrenador(p.esEntrenador);
@@ -195,18 +219,19 @@ export default function Personas() {
           ) : items.length === 0 ? (
             <div>No hay personas.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>DNI</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Nombre</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Usuario</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Alumno</th>
-                  <th style={{ textAlign: 'center', padding: 8 }}>Entrenador</th>
-                  <th style={{ textAlign: 'right', padding: 8 }}>Acciones</th>
-                </tr>
-              </thead>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>DNI</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Nombre</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Usuario</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Alumno</th>
+                    <th style={{ textAlign: 'center', padding: 8 }}>Entrenador</th>
+                  </tr>
+                </thead>
               <tbody>
                 {items
                   .filter((it) => {
@@ -219,17 +244,7 @@ export default function Personas() {
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((it) => (
                   <tr key={it.id} style={{ borderTop: '1px solid #eee' }}>
-                    <td style={{ padding: 8 }}>{it.id}</td>
-                    <td style={{ padding: 8 }}>{it.dni}</td>
-                    <td style={{ padding: 8 }}>{it.nombre}</td>
-                    <td style={{ padding: 8 }}>{it.usuario}</td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>
-                      {it.esAlumno ? (it.alumnoActivo ? '✓' : '○') : '—'}
-                    </td>
-                    <td style={{ padding: 8, textAlign: 'center' }}>
-                      {it.esEntrenador ? (it.entrenadorActivo ? '✓' : '○') : '—'}
-                    </td>
-                    <td style={{ padding: 8, textAlign: 'right' }}>
+                    <td style={{ padding: 8 }}>
                       {currentUser?.roles?.includes('Admin') && (
                         <>
                           <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
@@ -241,10 +256,21 @@ export default function Personas() {
                         </>
                       )}
                     </td>
+                    <td style={{ padding: 8 }}>{it.id}</td>
+                    <td style={{ padding: 8 }}>{it.dni}</td>
+                    <td style={{ padding: 8 }}>{it.nombre}</td>
+                    <td style={{ padding: 8 }}>{it.usuario}</td>
+                    <td style={{ padding: 8, textAlign: 'center' }}>
+                      {it.esAlumno ? (it.alumnoActivo ? '✓' : '○') : '—'}
+                    </td>
+                    <td style={{ padding: 8, textAlign: 'center' }}>
+                      {it.esEntrenador ? (it.entrenadorActivo ? '✓' : '○') : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </Box>
           )}
         </Box>
       </Paper>
@@ -271,7 +297,7 @@ export default function Personas() {
             <TextField
               label="Nombre"
               value={nombre}
-              onChange={(ev) => setNombre(ev.target.value)}
+              onChange={(ev) => handleNombreChange(ev.target.value)}
               error={!!errors.nombre}
               helperText={errors.nombre}
               required
@@ -280,7 +306,7 @@ export default function Personas() {
             <TextField
               label="Usuario"
               value={usuario}
-              onChange={(ev) => setUsuario(ev.target.value)}
+              onChange={(ev) => handleUsuarioChange(ev.target.value)}
               error={!!errors.usuario}
               helperText={errors.usuario}
               required

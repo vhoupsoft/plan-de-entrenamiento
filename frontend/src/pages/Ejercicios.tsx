@@ -160,15 +160,16 @@ export default function Ejercicios() {
           ) : items.length === 0 ? (
             <div>No hay ejercicios.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Código</th>
-                  <th style={{ textAlign: 'left', padding: 8 }}>Descripción</th>
-                  <th style={{ textAlign: 'right', padding: 8 }}>Acciones</th>
-                </tr>
-              </thead>
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Código</th>
+                    <th style={{ textAlign: 'left', padding: 8 }}>Descripción</th>
+                  </tr>
+                </thead>
               <tbody>
                 {items
                   .filter((it) => {
@@ -179,10 +180,7 @@ export default function Ejercicios() {
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((it) => (
                   <tr key={it.id} style={{ borderTop: '1px solid #eee' }}>
-                    <td style={{ padding: 8 }}>{it.id}</td>
-                    <td style={{ padding: 8 }}>{it.codEjercicio}</td>
-                    <td style={{ padding: 8 }}>{it.descripcion}</td>
-                    <td style={{ padding: 8, textAlign: 'right' }}>
+                    <td style={{ padding: 8 }}>
                       {((currentUser && (currentUser.roles?.includes('Admin') || currentUser.roles?.includes('Entrenador'))) || currentUser?.esEntrenador) && (
                         <>
                           <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
@@ -194,10 +192,14 @@ export default function Ejercicios() {
                         </>
                       )}
                     </td>
+                    <td style={{ padding: 8 }}>{it.id}</td>
+                    <td style={{ padding: 8 }}>{it.codEjercicio}</td>
+                    <td style={{ padding: 8 }}>{it.descripcion}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </Box>
           )}
         </Box>
       </Paper>
