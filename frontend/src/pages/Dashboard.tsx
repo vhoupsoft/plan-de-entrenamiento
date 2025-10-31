@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   Chip,
+  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -93,6 +94,7 @@ export default function Dashboard() {
   const [currentDiaIndex, setCurrentDiaIndex] = useState(0);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [etapas, setEtapas] = useState<Etapa[]>([]);
+  const [alumnoSearch, setAlumnoSearch] = useState('');
   const [expandedEtapas, setExpandedEtapas] = useState<Set<number>>(new Set());
   const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set());
   
@@ -106,6 +108,49 @@ export default function Dashboard() {
   const isAlumno = currentUser?.esAlumno || false;
   const isEntrenador = currentUser?.esEntrenador || currentUser?.roles?.includes('Entrenador') || false;
 
+  // Persistencia ligera en localStorage
+  type StoredAlumnoState = { diaIndex: number; expandedEtapas: number[] };
+  type StoredState = {
+    mode: UserMode | null;
+    selectedAlumnoIds: number[];
+    currentAlumnoIndex: number;
+    alumnoStates: Record<number, StoredAlumnoState>;
+  };
+
+  const getStorageKey = () => `dashboardState_${currentUser?.id ?? 'anon'}`;
+
+  const loadPersistentState = (): StoredState | null => {
+    try {
+      const raw = localStorage.getItem(getStorageKey());
+      if (!raw) return null;
+      return JSON.parse(raw) as StoredState;
+    } catch {
+      return null;
+    }
+  };
+
+  const savePersistentState = (opts?: { currentAlumnoIndexOverride?: number; alumnoStatesOverride?: Map<number, { diaIndex: number; expandedEtapas: Set<number> }>; selectedAlumnoIdsOverride?: number[]; modeOverride?: UserMode | null; }) => {
+    const alumnoStatesToUse = opts?.alumnoStatesOverride ?? alumnoStates;
+    const currentAlumnoIndexToUse = opts?.currentAlumnoIndexOverride ?? currentAlumnoIndex;
+    const selectedIdsToUse = opts?.selectedAlumnoIdsOverride ?? selectedAlumnoIds;
+    const modeToUse = opts?.modeOverride ?? mode;
+
+    const obj: StoredState = {
+      mode: modeToUse,
+      selectedAlumnoIds: selectedIdsToUse,
+      currentAlumnoIndex: currentAlumnoIndexToUse,
+      alumnoStates: Object.fromEntries(
+        Array.from(alumnoStatesToUse.entries()).map(([alumnoId, st]) => [
+          alumnoId,
+          { diaIndex: st.diaIndex, expandedEtapas: Array.from(st.expandedEtapas) },
+        ])
+      ),
+    };
+    try {
+      localStorage.setItem(getStorageKey(), JSON.stringify(obj));
+    } catch {}
+  };
+
   useEffect(() => {
     initializeDashboard();
   }, [currentUser]);
@@ -115,19 +160,50 @@ export default function Dashboard() {
     
     // Fetch ejercicios y etapas
     await Promise.all([fetchEjercicios(), fetchEtapas()]);
+    // Intentar restaurar estado previo guardado
+    const saved = loadPersistentState();
 
-    if (isAlumno && !isEntrenador) {
-      // Solo alumno: cargar su plan activo directamente
-      setMode('alumno');
-      await loadAlumnoPlans([currentUser!.id]);
-    } else if (isEntrenador && !isAlumno) {
-      // Solo entrenador: mostrar selector de alumnos
-      setMode('entrenador');
-      await fetchAlumnos();
-      setShowAlumnoSelector(true);
-    } else if (isAlumno && isEntrenador) {
-      // Ambos roles: mostrar selector de modo
-      setShowModeSelector(true);
+    if (saved) {
+      // Restaurar modo y selección si aplica
+      if (saved.mode === 'alumno' && isAlumno) {
+        setMode('alumno');
+        setSelectedAlumnoIds([currentUser!.id]);
+        await loadAlumnoPlans([currentUser!.id]);
+      } else if (saved.mode === 'entrenador' && isEntrenador && saved.selectedAlumnoIds?.length) {
+        setMode('entrenador');
+        setSelectedAlumnoIds(saved.selectedAlumnoIds);
+        await loadAlumnoPlans(saved.selectedAlumnoIds);
+      }
+
+      // Reconstruir alumnoStates desde guardado
+      if (saved.alumnoStates) {
+        const map = new Map<number, { diaIndex: number; expandedEtapas: Set<number> }>();
+        Object.entries(saved.alumnoStates).forEach(([k, v]) => {
+          map.set(Number(k), { diaIndex: v.diaIndex, expandedEtapas: new Set(v.expandedEtapas) });
+        });
+        setAlumnoStates(map);
+      }
+
+      // Restaurar índice de alumno actual si hay planes
+      if (planesActivos.length > 0) {
+        const idx = Math.min(Math.max(saved.currentAlumnoIndex || 0, 0), Math.max(planesActivos.length - 1, 0));
+        setCurrentAlumnoIndex(idx);
+        restoreAlumnoState(idx);
+      }
+    } else {
+      if (isAlumno && !isEntrenador) {
+        // Solo alumno: cargar su plan activo directamente
+        setMode('alumno');
+        await loadAlumnoPlans([currentUser!.id]);
+      } else if (isEntrenador && !isAlumno) {
+        // Solo entrenador: mostrar selector de alumnos
+        setMode('entrenador');
+        await fetchAlumnos();
+        setShowAlumnoSelector(true);
+      } else if (isAlumno && isEntrenador) {
+        // Ambos roles: mostrar selector de modo
+        setShowModeSelector(true);
+      }
     }
     
     setLoading(false);
@@ -168,10 +244,14 @@ export default function Dashboard() {
     setShowModeSelector(false);
     
     if (selectedMode === 'alumno') {
+      setSelectedAlumnoIds([currentUser!.id]);
       await loadAlumnoPlans([currentUser!.id]);
+      savePersistentState({ modeOverride: 'alumno' });
     } else {
       await fetchAlumnos();
       setShowAlumnoSelector(true);
+      // Guardar preferencia de modo aunque aún no haya selección
+      savePersistentState({ modeOverride: 'entrenador', selectedAlumnoIdsOverride: [] });
     }
   };
 
@@ -179,6 +259,7 @@ export default function Dashboard() {
     if (selectedAlumnoIds.length === 0) return;
     setShowAlumnoSelector(false);
     await loadAlumnoPlans(selectedAlumnoIds);
+    savePersistentState();
   };
 
   const loadAlumnoPlans = async (alumnoIds: number[]) => {
@@ -259,6 +340,7 @@ export default function Dashboard() {
     const newIndex = Math.max(0, currentAlumnoIndex - 1);
     setCurrentAlumnoIndex(newIndex);
     restoreAlumnoState(newIndex);
+    savePersistentState({ currentAlumnoIndexOverride: newIndex });
   };
 
   const handleNextAlumno = () => {
@@ -266,16 +348,39 @@ export default function Dashboard() {
     const newIndex = Math.min(planesActivos.length - 1, currentAlumnoIndex + 1);
     setCurrentAlumnoIndex(newIndex);
     restoreAlumnoState(newIndex);
+    savePersistentState({ currentAlumnoIndexOverride: newIndex });
   };
 
   const handlePrevDia = () => {
-    setCurrentDiaIndex(prev => Math.max(0, prev - 1));
+    setCurrentDiaIndex(prev => {
+      const newDia = Math.max(0, prev - 1);
+      const alumnoId = planesActivos[currentAlumnoIndex]?.alumnoId;
+      if (alumnoId) {
+        const map = new Map(alumnoStates);
+        const prevState = map.get(alumnoId) ?? { diaIndex: 0, expandedEtapas: new Set<number>() };
+        map.set(alumnoId, { diaIndex: newDia, expandedEtapas: new Set(prevState.expandedEtapas) });
+        setAlumnoStates(map);
+        savePersistentState({ alumnoStatesOverride: map });
+      }
+      return newDia;
+    });
   };
 
   const handleNextDia = () => {
     const currentPlan = planesActivos[currentAlumnoIndex];
     if (currentPlan?.dias) {
-      setCurrentDiaIndex(prev => Math.min(currentPlan.dias!.length - 1, prev + 1));
+      setCurrentDiaIndex(prev => {
+        const newDia = Math.min(currentPlan.dias!.length - 1, prev + 1);
+        const alumnoId = planesActivos[currentAlumnoIndex]?.alumnoId;
+        if (alumnoId) {
+          const map = new Map(alumnoStates);
+          const prevState = map.get(alumnoId) ?? { diaIndex: 0, expandedEtapas: new Set<number>() };
+          map.set(alumnoId, { diaIndex: newDia, expandedEtapas: new Set(prevState.expandedEtapas) });
+          setAlumnoStates(map);
+          savePersistentState({ alumnoStatesOverride: map });
+        }
+        return newDia;
+      });
     }
   };
 
@@ -287,6 +392,14 @@ export default function Dashboard() {
         newSet.delete(etapaId);
       } else {
         newSet.add(etapaId);
+      }
+      const alumnoId = planesActivos[currentAlumnoIndex]?.alumnoId;
+      if (alumnoId) {
+        const map = new Map(alumnoStates);
+        const prevState = map.get(alumnoId) ?? { diaIndex: currentDiaIndex, expandedEtapas: new Set<number>() };
+        map.set(alumnoId, { diaIndex: prevState.diaIndex, expandedEtapas: new Set(newSet) });
+        setAlumnoStates(map);
+        savePersistentState({ alumnoStatesOverride: map });
       }
       return newSet;
     });
@@ -414,20 +527,36 @@ export default function Dashboard() {
           <Typography variant="body2" gutterBottom>
             Seleccioná los alumnos cuyos planes querés visualizar:
           </Typography>
-          <Stack spacing={1} sx={{ mt: 2 }}>
-            {alumnos.map(alumno => (
-              <FormControlLabel
-                key={alumno.id}
-                control={
-                  <Checkbox
-                    checked={selectedAlumnoIds.includes(alumno.id)}
-                    onChange={() => toggleAlumnoSelection(alumno.id)}
+          <TextField
+            fullWidth
+            size="small"
+            label="Buscar alumno (nombre o DNI)"
+            value={alumnoSearch}
+            onChange={(e) => setAlumnoSearch(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+          <Box sx={{ mt: 2, maxHeight: '60vh', overflowY: 'auto', pr: 1 }}>
+            <Stack spacing={1}>
+              {alumnos
+                .filter(a => {
+                  const q = alumnoSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  return a.nombre.toLowerCase().includes(q) || (a.dni || '').toLowerCase().includes(q);
+                })
+                .map(alumno => (
+                  <FormControlLabel
+                    key={alumno.id}
+                    control={
+                      <Checkbox
+                        checked={selectedAlumnoIds.includes(alumno.id)}
+                        onChange={() => toggleAlumnoSelection(alumno.id)}
+                      />
+                    }
+                    label={`${alumno.nombre} (DNI: ${alumno.dni})`}
                   />
-                }
-                label={`${alumno.nombre} (DNI: ${alumno.dni})`}
-              />
-            ))}
-          </Stack>
+                ))}
+            </Stack>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleAlumnosConfirm} variant="contained" disabled={selectedAlumnoIds.length === 0}>
@@ -478,6 +607,16 @@ export default function Dashboard() {
                   <Typography variant="body2" color="text.secondary">
                     Entrenador: {currentPlan?.entrenador.nombre}
                   </Typography>
+                  {mode === 'entrenador' && (
+                    <Button
+                      onClick={() => { setShowAlumnoSelector(true); fetchAlumnos(); }}
+                      size="small"
+                      variant="outlined"
+                      sx={{ mt: 0.5 }}
+                    >
+                      Seleccionar alumnos
+                    </Button>
+                  )}
                 </Box>
               </Box>
               
