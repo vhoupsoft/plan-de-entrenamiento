@@ -480,6 +480,11 @@ export default function Planes() {
   };
 
   const filteredItems = items.filter((it) => {
+    // Si es alumno (y no admin/entrenador), solo ver sus propios planes
+    if (currentUser?.esAlumno && !currentUser?.roles?.includes('Admin') && !currentUser?.roles?.includes('Entrenador')) {
+      if (it.alumnoId !== currentUser?.id) return false;
+    }
+    // Filtro de búsqueda
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return (
@@ -534,11 +539,12 @@ export default function Planes() {
           Ejercicios del Día {selectedDia?.nroDia} - {selectedDia?.descripcion}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2, mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              {editingDetalle ? 'Editar ejercicio' : 'Agregar ejercicio'}
-            </Typography>
-            <Stack spacing={2}>
+          {canEdit && (
+            <Box sx={{ mt: 2, mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                {editingDetalle ? 'Editar ejercicio' : 'Agregar ejercicio'}
+              </Typography>
+              <Stack spacing={2}>
               <FormControl fullWidth error={!!detalleErrors.ejercicio} required>
                 <InputLabel>Ejercicio</InputLabel>
                 <Select
@@ -649,8 +655,9 @@ export default function Planes() {
               </Box>
             </Stack>
           </Box>
+          )}
 
-          <Divider />
+          {canEdit && <Divider />}
 
           <Box sx={{ mt: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
@@ -875,7 +882,9 @@ export default function Planes() {
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    {currentUser?.roles?.includes('Admin') && (
+                      <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    )}
                     <th style={{ textAlign: 'left', padding: 8 }}>Alumno</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Entrenador</th>
                     <th style={{ textAlign: 'center', padding: 8 }}>Desde</th>
@@ -908,7 +917,9 @@ export default function Planes() {
                           </>
                         )}
                       </td>
-                      <td style={{ padding: 8 }}>{it.id}</td>
+                      {currentUser?.roles?.includes('Admin') && (
+                        <td style={{ padding: 8 }}>{it.id}</td>
+                      )}
                       <td style={{ padding: 8 }}>{it.alumno.nombre}</td>
                       <td style={{ padding: 8 }}>{it.entrenador.nombre}</td>
                       <td style={{ padding: 8, textAlign: 'center' }}>{formatDate(it.fechaDesde)}</td>

@@ -195,7 +195,9 @@ export default function Etapas() {
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    {currentUser?.roles?.includes('Admin') && (
+                      <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    )}
                     <th style={{ textAlign: 'left', padding: 8 }}>Descripción</th>
                     <th style={{ textAlign: 'center', padding: 8 }}>Orden</th>
                   </tr>
@@ -217,7 +219,9 @@ export default function Etapas() {
                           </>
                         )}
                       </td>
-                      <td style={{ padding: 8 }}>{it.id}</td>
+                      {currentUser?.roles?.includes('Admin') && (
+                        <td style={{ padding: 8 }}>{it.id}</td>
+                      )}
                       <td style={{ padding: 8 }}>{it.descripcion}</td>
                       <td style={{ padding: 8, textAlign: 'center' }}>{it.orden}</td>
                     </tr>

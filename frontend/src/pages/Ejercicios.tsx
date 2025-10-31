@@ -165,7 +165,9 @@ export default function Ejercicios() {
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    {currentUser?.roles?.includes('Admin') && (
+                      <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    )}
                     <th style={{ textAlign: 'left', padding: 8 }}>Código</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Descripción</th>
                   </tr>
@@ -192,7 +194,9 @@ export default function Ejercicios() {
                         </>
                       )}
                     </td>
-                    <td style={{ padding: 8 }}>{it.id}</td>
+                    {currentUser?.roles?.includes('Admin') && (
+                      <td style={{ padding: 8 }}>{it.id}</td>
+                    )}
                     <td style={{ padding: 8 }}>{it.codEjercicio}</td>
                     <td style={{ padding: 8 }}>{it.descripcion}</td>
                   </tr>

@@ -575,16 +575,28 @@ export default function Dashboard() {
                                       {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
                                     </Typography>
                                     {detalle.series > 0 && (
-                                      <Chip label={`${detalle.series} ser.`} size="small" />
+                                      <Chip label={`${detalle.series} S`} size="small" color="secondary" />
                                     )}
                                     {detalle.repeticiones > 0 && (
-                                      <Chip label={`${detalle.repeticiones} reps`} size="small" />
+                                      <Chip 
+                                        label={`${detalle.repeticiones} R`} 
+                                        size="small" 
+                                        sx={{ bgcolor: '#90EE90', color: '#2e7d32', fontWeight: 500 }}
+                                      />
                                     )}
                                     {detalle.tiempoEnSeg > 0 && (
-                                      <Chip label={`${detalle.tiempoEnSeg} seg`} size="small" color="info" />
+                                      <Chip 
+                                        label={formatTiempo(detalle.tiempoEnSeg)} 
+                                        size="small" 
+                                        sx={{ 
+                                          bgcolor: detalle.tiempoEnSeg < 60 ? '#87CEEB' : '#1976d2',
+                                          color: detalle.tiempoEnSeg < 60 ? '#0d47a1' : '#fff',
+                                          fontWeight: 500
+                                        }}
+                                      />
                                     )}
                                     {detalle.carga > 0 && (
-                                      <Chip label={`${detalle.carga} kg`} size="small" color="secondary" />
+                                      <Chip label={`${detalle.carga} kg`} size="small" color="error" />
                                     )}
                                   </Box>
                                   <Typography 
@@ -653,7 +665,7 @@ export default function Dashboard() {
                                     {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
                                   </Typography>
                                   {detalle.series > 0 && (
-                                    <Chip label={`${detalle.series} S`} size="small" color="error" />
+                                    <Chip label={`${detalle.series} S`} size="small" color="secondary" />
                                   )}
                                   {detalle.repeticiones > 0 && (
                                     <Chip 
@@ -663,10 +675,18 @@ export default function Dashboard() {
                                     />
                                   )}
                                   {detalle.tiempoEnSeg > 0 && (
-                                    <Chip label={formatTiempo(detalle.tiempoEnSeg)} size="small" color="info" />
+                                    <Chip 
+                                      label={formatTiempo(detalle.tiempoEnSeg)} 
+                                      size="small" 
+                                      sx={{ 
+                                        bgcolor: detalle.tiempoEnSeg < 60 ? '#87CEEB' : '#1976d2',
+                                        color: detalle.tiempoEnSeg < 60 ? '#0d47a1' : '#fff',
+                                        fontWeight: 500
+                                      }}
+                                    />
                                   )}
                                   {detalle.carga > 0 && (
-                                    <Chip label={`${detalle.carga} kg`} size="small" color="secondary" />
+                                    <Chip label={`${detalle.carga} kg`} size="small" color="error" />
                                   )}
                                 </Box>
                                 <Typography 

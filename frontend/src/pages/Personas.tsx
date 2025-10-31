@@ -231,7 +231,9 @@ export default function Personas() {
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
-                    <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    {currentUser?.roles?.includes('Admin') && (
+                      <th style={{ textAlign: 'left', padding: 8 }}>ID</th>
+                    )}
                     <th style={{ textAlign: 'left', padding: 8 }}>DNI</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Nombre</th>
                     <th style={{ textAlign: 'left', padding: 8 }}>Usuario</th>
@@ -242,6 +244,11 @@ export default function Personas() {
               <tbody>
                 {items
                   .filter((it) => {
+                    // Si es alumno (y no admin/entrenador), solo ver sus propios datos
+                    if (currentUser?.esAlumno && !currentUser?.roles?.includes('Admin') && !currentUser?.roles?.includes('Entrenador')) {
+                      if (it.id !== currentUser?.id) return false;
+                    }
+                    // Filtro de búsqueda
                     const q = query.trim().toLowerCase();
                     if (!q) return true;
                     return (it.dni || '').toLowerCase().includes(q) || 
@@ -263,7 +270,9 @@ export default function Personas() {
                         </>
                       )}
                     </td>
-                    <td style={{ padding: 8 }}>{it.id}</td>
+                    {currentUser?.roles?.includes('Admin') && (
+                      <td style={{ padding: 8 }}>{it.id}</td>
+                    )}
                     <td style={{ padding: 8 }}>{it.dni}</td>
                     <td style={{ padding: 8 }}>{it.nombre}</td>
                     <td style={{ padding: 8 }}>{it.usuario}</td>
