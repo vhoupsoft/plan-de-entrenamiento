@@ -25,13 +25,20 @@ export const getEjercicio = async (req: Request, res: Response) => {
 
 export const createEjercicio = async (req: Request, res: Response) => {
   try {
-    const { codEjercicio, descripcion } = req.body;
+    const { codEjercicio, descripcion, imagenes, links } = req.body;
     if (!codEjercicio || !descripcion) return res.status(400).json({ error: 'Faltan datos' });
 
     const existing = await prisma.ejercicio.findFirst({ where: { codEjercicio } });
     if (existing) return res.status(400).json({ error: 'Código ya existe' });
 
-    const ej = await prisma.ejercicio.create({ data: { codEjercicio, descripcion } });
+    const ej = await prisma.ejercicio.create({ 
+      data: { 
+        codEjercicio, 
+        descripcion,
+        imagenes: imagenes || null,
+        links: links || null
+      } as any
+    });
     res.status(201).json(ej);
   } catch (err) {
     console.error(err);
@@ -42,14 +49,14 @@ export const createEjercicio = async (req: Request, res: Response) => {
 export const updateEjercicio = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
-    const { codEjercicio, descripcion } = req.body;
+    const { codEjercicio, descripcion, imagenes, links } = req.body;
     // if codEjercicio is provided, ensure it's not used by another record
     if (codEjercicio) {
       const exists = await prisma.ejercicio.findFirst({ where: { codEjercicio, NOT: { id } } as any });
       if (exists) return res.status(400).json({ error: 'Código ya existe' });
     }
 
-    const data: any = { codEjercicio, descripcion };
+    const data: any = { codEjercicio, descripcion, imagenes, links };
     Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
 
     // ensure record exists

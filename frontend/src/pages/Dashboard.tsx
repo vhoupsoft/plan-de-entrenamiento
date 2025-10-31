@@ -38,6 +38,8 @@ type Ejercicio = {
   id: number;
   codEjercicio: string;
   descripcion: string;
+  imagenes?: string | null;
+  links?: string | null;
 };
 
 type Etapa = {
@@ -777,6 +779,50 @@ export default function Dashboard() {
                                   >
                                     {ejercicio?.descripcion}
                                   </Typography>
+                                  {isExerciseExpanded && ejercicio && (ejercicio.imagenes || ejercicio.links) && (
+                                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #eee' }}>
+                                      {ejercicio.imagenes && ejercicio.imagenes.trim() && (
+                                        <Box sx={{ mb: 2 }}>
+                                          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                            Imágenes:
+                                          </Typography>
+                                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                            {ejercicio.imagenes.split(',').map((url, idx) => (
+                                              <img 
+                                                key={idx} 
+                                                src={url.trim()} 
+                                                alt={`${ejercicio.codEjercicio} ${idx + 1}`}
+                                                style={{ maxWidth: '150px', maxHeight: '150px', borderRadius: '4px', objectFit: 'cover' }}
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                              />
+                                            ))}
+                                          </Box>
+                                        </Box>
+                                      )}
+                                      {ejercicio.links && ejercicio.links.trim() && (
+                                        <Box>
+                                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                                            Videos/Links:
+                                          </Typography>
+                                          <Stack spacing={0.5}>
+                                            {ejercicio.links.split(',').map((url, idx) => (
+                                              <Box key={idx}>
+                                                <a 
+                                                  href={url.trim()} 
+                                                  target="_blank" 
+                                                  rel="noopener noreferrer"
+                                                  style={{ fontSize: '0.875rem', color: '#1976d2', textDecoration: 'none' }}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  {url.trim().length > 50 ? url.trim().substring(0, 50) + '...' : url.trim()}
+                                                </a>
+                                              </Box>
+                                            ))}
+                                          </Stack>
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  )}
                                 </CardContent>
                               </Card>
                             );
@@ -867,6 +913,50 @@ export default function Dashboard() {
                                 >
                                   {ejercicio?.descripcion}
                                 </Typography>
+                                {isExerciseExpanded && ejercicio && (ejercicio.imagenes || ejercicio.links) && (
+                                  <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #eee' }}>
+                                    {ejercicio.imagenes && ejercicio.imagenes.trim() && (
+                                      <Box sx={{ mb: 2 }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                          Imágenes:
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                          {ejercicio.imagenes.split(',').map((url, idx) => (
+                                            <img 
+                                              key={idx} 
+                                              src={url.trim()} 
+                                              alt={`${ejercicio.codEjercicio} ${idx + 1}`}
+                                              style={{ maxWidth: '150px', maxHeight: '150px', borderRadius: '4px', objectFit: 'cover' }}
+                                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                          ))}
+                                        </Box>
+                                      </Box>
+                                    )}
+                                    {ejercicio.links && ejercicio.links.trim() && (
+                                      <Box>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                                          Videos/Links:
+                                        </Typography>
+                                        <Stack spacing={0.5}>
+                                          {ejercicio.links.split(',').map((url, idx) => (
+                                            <Box key={idx}>
+                                              <a 
+                                                href={url.trim()} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                style={{ fontSize: '0.875rem', color: '#1976d2', textDecoration: 'none' }}
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                {url.trim().length > 50 ? url.trim().substring(0, 50) + '...' : url.trim()}
+                                              </a>
+                                            </Box>
+                                          ))}
+                                        </Stack>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                )}
                               </CardContent>
                             </Card>
                           );

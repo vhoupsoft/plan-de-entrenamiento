@@ -24,6 +24,8 @@ type Ejercicio = {
   id: number;
   codEjercicio: string;
   descripcion?: string | null;
+  imagenes?: string | null;
+  links?: string | null;
 };
 
 export default function Ejercicios() {
@@ -36,6 +38,8 @@ export default function Ejercicios() {
   const [editing, setEditing] = useState<Ejercicio | null>(null);
   const [cod, setCod] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [imagenes, setImagenes] = useState('');
+  const [links, setLinks] = useState('');
   const [errors, setErrors] = useState<{ cod?: string }>({});
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -69,6 +73,8 @@ export default function Ejercicios() {
     setEditing(null);
     setCod('');
     setDescripcion('');
+    setImagenes('');
+    setLinks('');
     setErrors({});
     setOpen(true);
   };
@@ -77,6 +83,8 @@ export default function Ejercicios() {
     setEditing(e);
     setCod(e.codEjercicio);
     setDescripcion(e.descripcion || '');
+    setImagenes(e.imagenes || '');
+    setLinks(e.links || '');
     setErrors({});
     setOpen(true);
   };
@@ -98,10 +106,16 @@ export default function Ejercicios() {
     if (!validate()) return;
     setIsSaving(true);
     try {
+      const data = {
+        codEjercicio: cod.trim(),
+        descripcion: descripcion || undefined,
+        imagenes: imagenes.trim() || undefined,
+        links: links.trim() || undefined
+      };
       if (editing) {
-        await api.put(`/ejercicios/${editing.id}`, { codEjercicio: cod.trim(), descripcion: descripcion || undefined });
+        await api.put(`/ejercicios/${editing.id}`, data);
       } else {
-        await api.post('/ejercicios', { codEjercicio: cod.trim(), descripcion: descripcion || undefined });
+        await api.post('/ejercicios', data);
       }
       await fetch();
       setOpen(false);
@@ -234,6 +248,26 @@ export default function Ejercicios() {
               fullWidth
               multiline
               minRows={2}
+            />
+            <TextField
+              label="Imágenes (URLs separadas por comas)"
+              value={imagenes}
+              onChange={(ev) => setImagenes(ev.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              placeholder="https://ejemplo.com/imagen1.jpg, https://ejemplo.com/imagen2.gif"
+              helperText="Ingresá URLs de imágenes JPG o GIF separadas por comas"
+            />
+            <TextField
+              label="Links de videos/sitios (URLs separadas por comas)"
+              value={links}
+              onChange={(ev) => setLinks(ev.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              placeholder="https://youtube.com/..., https://ejemplo.com/tutorial"
+              helperText="Ingresá URLs a videos o sitios explicativos separadas por comas"
             />
           </Stack>
         </DialogContent>
