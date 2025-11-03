@@ -8,15 +8,10 @@ import {
   CardContent,
   Chip,
   TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControlLabel,
-  Checkbox,
-  Stack,
   IconButton,
   Paper,
+ } from '@mui/material';
+ import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack } from '@mui/material';
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -104,6 +99,52 @@ export default function Dashboard() {
   
   // Estado por alumno: guarda diaIndex y etapas expandidas para cada alumno
   const [alumnoStates, setAlumnoStates] = useState<Map<number, { diaIndex: number, expandedEtapas: Set<number> }>>(new Map());
+  // Dialog for editing planDetalle values
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingDetalle, setEditingDetalle] = useState<any | null>(null);
+  const [editSeries, setEditSeries] = useState<number | ''>('');
+  const [editReps, setEditReps] = useState<number | ''>('');
+  const [editTiempo, setEditTiempo] = useState<number | ''>('');
+  const [editCarga, setEditCarga] = useState<number | ''>('');
+  const [editFechaDesde, setEditFechaDesde] = useState<string>('');
+
+  const openEditDetalle = (detalle: any) => {
+    setEditingDetalle(detalle);
+    setEditSeries(detalle.series ?? '');
+    setEditReps(detalle.repeticiones ?? '');
+    setEditTiempo(detalle.tiempoEnSeg ?? '');
+    setEditCarga(detalle.carga ?? '');
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setEditFechaDesde(`${yyyy}-${mm}-${dd}`);
+    setEditDialogOpen(true);
+  };
+
+  const saveEditDetalle = async () => {
+    if (!editingDetalle) return;
+    try {
+      const payload: any = {
+        series: editSeries === '' ? undefined : Number(editSeries),
+        repeticiones: editReps === '' ? undefined : Number(editReps),
+        tiempoEnSeg: editTiempo === '' ? undefined : Number(editTiempo),
+        carga: editCarga === '' ? undefined : Number(editCarga),
+        fechaDesde: editFechaDesde,
+      };
+      await fetch(`/api/plan-detalles/${editingDetalle.id}/historial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify(payload),
+      });
+      // refresh plan/diarios
+      initializeDashboard();
+      setEditDialogOpen(false);
+    } catch (err) {
+      console.error('saveEditDetalle', err);
+      alert('Error al guardar historial');
+    }
+  };
   
   // Flag para evitar reinicialización cuando AuthContext revalida el usuario
   const [initialized, setInitialized] = useState(false);
@@ -777,6 +818,9 @@ export default function Dashboard() {
                                       <Chip label={`${detalle.carga} kg`} size="small" color="error" />
                                     )}
                                   </Box>
+                                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                                    <Button size="small" variant="outlined" onClick={(ev) => { ev.stopPropagation(); openEditDetalle(detalle); }}>Editar valores</Button>
+                                  </Box>
                                   <Typography 
                                     variant="body2" 
                                     color="text.secondary"
@@ -814,6 +858,7 @@ export default function Dashboard() {
                                             ))}
                                           </Box>
                                         </Box>
+                                        {/* Dialog for editing PlanDetalle */}
                                       )}
                                       {ejercicio.links && ejercicio.links.trim() && (
                                         <Box>

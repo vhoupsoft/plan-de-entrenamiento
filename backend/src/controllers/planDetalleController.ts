@@ -27,20 +27,41 @@ export const getPlanDetalle = async (req: Request, res: Response) => {
 
 export const createPlanDetalle = async (req: Request, res: Response) => {
   try {
-    const { planDiaId, ejercicioId, series, repeticiones, tiempoEnSeg, carga, orden, etapaId } = req.body;
+    const { planDiaId, ejercicioId, series, repeticiones, tiempoEnSeg, carga, orden, etapaId, fechaDesde } = req.body;
     if (!planDiaId || !ejercicioId) return res.status(400).json({ error: 'Faltan datos' });
+    
+    const seriesVal = series ? Number(series) : 0;
+    const repeticionesVal = repeticiones ? Number(repeticiones) : 0;
+    const tiempoEnSegVal = tiempoEnSeg ? Number(tiempoEnSeg) : 0;
+    const cargaVal = carga ? Number(carga) : 0;
+    
     const data = {
       planDiaId: Number(planDiaId),
       ejercicioId: Number(ejercicioId),
-      series: series ? Number(series) : 0,
-      repeticiones: repeticiones ? Number(repeticiones) : 0,
-      tiempoEnSeg: tiempoEnSeg ? Number(tiempoEnSeg) : 0,
-      carga: carga ? Number(carga) : 0,
+      series: seriesVal,
+      repeticiones: repeticionesVal,
+      tiempoEnSeg: tiempoEnSegVal,
+      carga: cargaVal,
       orden: orden ? Number(orden) : 0,
       etapaId: etapaId && etapaId !== '' ? Number(etapaId) : null,
     } as any;
     if (data.etapaId === null) delete data.etapaId;
+    
     const detalle = await prisma.planDetalle.create({ data });
+    
+    // Crear registro inicial en historial
+    const fechaInicial = fechaDesde ? new Date(fechaDesde) : new Date();
+    await prisma.planDetalleHistorial.create({
+      data: {
+        planDetalleId: detalle.id,
+        series: seriesVal,
+        repeticiones: repeticionesVal,
+        tiempoEnSeg: tiempoEnSegVal,
+        carga: cargaVal,
+        fechaDesde: fechaInicial,
+      },
+    });
+    
     res.status(201).json(detalle);
   } catch (err) {
     console.error(err);

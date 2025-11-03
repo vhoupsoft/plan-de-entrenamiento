@@ -73,8 +73,23 @@ model PlanDetalle {
   planDia      PlanDia   @relation(fields: [planDiaId], references: [id])
   ejercicio    Ejercicio @relation(fields: [ejercicioId], references: [id])
   etapa        Etapa?    @relation(fields: [etapaId], references: [id])
+  historial    PlanDetalleHistorial[]
 
   @@map("plan_detalles")
+}
+
+model PlanDetalleHistorial {
+  id            Int         @id @default(autoincrement())
+  planDetalleId Int
+  series        Int
+  repeticiones  Int
+  tiempoEnSeg   Int
+  carga         Float
+  fechaDesde    DateTime
+  planDetalle   PlanDetalle @relation(fields: [planDetalleId], references: [id], onDelete: Cascade)
+
+  @@map("plan_detalle_historial")
+  @@index([planDetalleId, fechaDesde])
 }
 
 model Etapa {
