@@ -13,6 +13,10 @@ import {
   Card,
   CardContent,
   CardActions,
+  ToggleButton,
+  ToggleButtonGroup,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -23,6 +27,8 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
+type FormatType = 'csv' | 'json';
+
 export default function Administracion() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -30,6 +36,11 @@ export default function Administracion() {
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
+  
+  const [ejerciciosFormat, setEjerciciosFormat] = useState<FormatType>('csv');
+  const [personasFormat, setPersonasFormat] = useState<FormatType>('csv');
+  const [ejerciciosSkipFirstRow, setEjerciciosSkipFirstRow] = useState(true);
+  const [personasSkipFirstRow, setPersonasSkipFirstRow] = useState(true);
 
   const isAdmin = user?.roles?.includes('Admin');
 
@@ -49,8 +60,15 @@ export default function Administracion() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (ejerciciosFormat === 'csv') {
+        formData.append('skipFirstRow', String(ejerciciosSkipFirstRow));
+      }
 
-      const res = await fetch('/api/admin/ejercicios/import', {
+      const endpoint = ejerciciosFormat === 'csv' 
+        ? '/api/admin/ejercicios/import' 
+        : '/api/admin/ejercicios/import-json';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -87,7 +105,11 @@ export default function Administracion() {
   const handleExportEjercicios = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/ejercicios/export', {
+      const endpoint = ejerciciosFormat === 'csv'
+        ? '/api/admin/ejercicios/export'
+        : '/api/admin/ejercicios/export-json';
+
+      const res = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -101,7 +123,7 @@ export default function Administracion() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'ejercicios.csv';
+      a.download = ejerciciosFormat === 'csv' ? 'ejercicios.csv' : 'ejercicios.json';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -128,8 +150,15 @@ export default function Administracion() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (personasFormat === 'csv') {
+        formData.append('skipFirstRow', String(personasSkipFirstRow));
+      }
 
-      const res = await fetch('/api/admin/personas/import', {
+      const endpoint = personasFormat === 'csv'
+        ? '/api/admin/personas/import'
+        : '/api/admin/personas/import-json';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -166,7 +195,11 @@ export default function Administracion() {
   const handleExportPersonas = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/personas/export', {
+      const endpoint = personasFormat === 'csv'
+        ? '/api/admin/personas/export'
+        : '/api/admin/personas/export-json';
+
+      const res = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -180,7 +213,7 @@ export default function Administracion() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'personas.csv';
+      a.download = personasFormat === 'csv' ? 'personas.csv' : 'personas.json';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -232,11 +265,42 @@ export default function Administracion() {
               <Typography variant="h6">Ejercicios</Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Importar/Exportar ejercicios desde archivos CSV
+              Importar/Exportar ejercicios desde archivos
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Formato CSV: Codigo, Descripcion, PasoImagenes, LinkExternos
+            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+              CSV: separador ; con comillas. Campos: Codigo, Descripcion, PasoImagenes, LinkExternos
             </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              JSON: array de objetos con las mismas propiedades
+            </Typography>
+            
+            <Box mt={2}>
+              <Typography variant="caption" display="block" mb={1}>Formato:</Typography>
+              <ToggleButtonGroup
+                value={ejerciciosFormat}
+                exclusive
+                onChange={(e, val) => val && setEjerciciosFormat(val)}
+                size="small"
+              >
+                <ToggleButton value="csv">CSV</ToggleButton>
+                <ToggleButton value="json">JSON</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {ejerciciosFormat === 'csv' && (
+              <Box mt={1}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={ejerciciosSkipFirstRow}
+                      onChange={(e) => setEjerciciosSkipFirstRow(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="caption">Primera fila contiene títulos</Typography>}
+                />
+              </Box>
+            )}
           </CardContent>
           <CardActions>
             <Button
@@ -245,10 +309,10 @@ export default function Administracion() {
               startIcon={<UploadFileIcon />}
               disabled={loading}
             >
-              Importar CSV
+              Importar {ejerciciosFormat.toUpperCase()}
               <input
                 type="file"
-                accept=".csv"
+                accept={ejerciciosFormat === 'csv' ? '.csv' : '.json'}
                 hidden
                 onChange={handleImportEjercicios}
               />
@@ -259,7 +323,7 @@ export default function Administracion() {
               onClick={handleExportEjercicios}
               disabled={loading}
             >
-              Exportar CSV
+              Exportar {ejerciciosFormat.toUpperCase()}
             </Button>
           </CardActions>
         </Card>
@@ -272,11 +336,42 @@ export default function Administracion() {
               <Typography variant="h6">Personas</Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Importar/Exportar personas desde archivos CSV
+              Importar/Exportar personas desde archivos
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Formato CSV: DNI, Nombre, esAlumno, esEntrenador, alumnoActivo, entrenadorActivo, usuario, clave
+            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+              CSV: separador ; con comillas. Campos: DNI, Nombre, esAlumno, esEntrenador, alumnoActivo, entrenadorActivo, usuario, clave
             </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              JSON: array de objetos con las mismas propiedades (booleanos como true/false)
+            </Typography>
+            
+            <Box mt={2}>
+              <Typography variant="caption" display="block" mb={1}>Formato:</Typography>
+              <ToggleButtonGroup
+                value={personasFormat}
+                exclusive
+                onChange={(e, val) => val && setPersonasFormat(val)}
+                size="small"
+              >
+                <ToggleButton value="csv">CSV</ToggleButton>
+                <ToggleButton value="json">JSON</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {personasFormat === 'csv' && (
+              <Box mt={1}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={personasSkipFirstRow}
+                      onChange={(e) => setPersonasSkipFirstRow(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="caption">Primera fila contiene títulos</Typography>}
+                />
+              </Box>
+            )}
           </CardContent>
           <CardActions>
             <Button
@@ -285,10 +380,10 @@ export default function Administracion() {
               startIcon={<UploadFileIcon />}
               disabled={loading}
             >
-              Importar CSV
+              Importar {personasFormat.toUpperCase()}
               <input
                 type="file"
-                accept=".csv"
+                accept={personasFormat === 'csv' ? '.csv' : '.json'}
                 hidden
                 onChange={handleImportPersonas}
               />
@@ -299,7 +394,7 @@ export default function Administracion() {
               onClick={handleExportPersonas}
               disabled={loading}
             >
-              Exportar CSV
+              Exportar {personasFormat.toUpperCase()}
             </Button>
           </CardActions>
         </Card>
