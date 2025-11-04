@@ -21,6 +21,9 @@ export const importEjercicios = async (req: Request, res: Response) => {
       skip_empty_lines: true,
       trim: true,
       relax_quotes: true,
+      relax_column_count: true,
+      quote: '"',
+      escape: '"',
       from_line: skipFirstRow ? 1 : 1,
     }) as any[];
 
@@ -124,6 +127,9 @@ export const importPersonas = async (req: Request, res: Response) => {
       skip_empty_lines: true,
       trim: true,
       relax_quotes: true,
+      relax_column_count: true,
+      quote: '"',
+      escape: '"',
       from_line: skipFirstRow ? 1 : 1,
     }) as any[];
 

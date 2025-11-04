@@ -17,6 +17,13 @@ import {
   ToggleButtonGroup,
   FormControlLabel,
   Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -24,6 +31,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import SecurityIcon from '@mui/icons-material/Security';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
@@ -41,6 +49,9 @@ export default function Administracion() {
   const [personasFormat, setPersonasFormat] = useState<FormatType>('csv');
   const [ejerciciosSkipFirstRow, setEjerciciosSkipFirstRow] = useState(true);
   const [personasSkipFirstRow, setPersonasSkipFirstRow] = useState(true);
+
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorList, setErrorList] = useState<string[]>([]);
 
   const isAdmin = user?.roles?.includes('Admin');
 
@@ -90,6 +101,8 @@ export default function Administracion() {
 
       if (data.errores.length > 0) {
         console.warn('Errores de importación:', data.errores);
+        setErrorList(data.errores);
+        setErrorDialogOpen(true);
       }
     } catch (err: any) {
       console.error('Import error:', err);
@@ -180,6 +193,8 @@ export default function Administracion() {
 
       if (data.errores.length > 0) {
         console.warn('Errores de importación:', data.errores);
+        setErrorList(data.errores);
+        setErrorDialogOpen(true);
       }
     } catch (err: any) {
       console.error('Import error:', err);
@@ -434,6 +449,43 @@ export default function Administracion() {
           {snackMsg}
         </Alert>
       </Snackbar>
+
+      <Dialog
+        open={errorDialogOpen}
+        onClose={() => setErrorDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <ErrorOutlineIcon color="error" />
+            <Typography variant="h6">Errores en la importación</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Se encontraron {errorList.length} errores durante la importación:
+          </Typography>
+          <List dense>
+            {errorList.map((error, index) => (
+              <ListItem key={index}>
+                <ListItemText
+                  primary={`${index + 1}. ${error}`}
+                  primaryTypographyProps={{ 
+                    variant: 'body2',
+                    sx: { fontFamily: 'monospace', fontSize: '0.85rem' }
+                  }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setErrorDialogOpen(false)}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
