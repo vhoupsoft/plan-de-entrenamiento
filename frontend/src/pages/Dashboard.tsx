@@ -17,6 +17,9 @@ import {
   Stack,
   FormControlLabel,
   Checkbox,
+  useMediaQuery,
+  useTheme,
+  Collapse,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -87,6 +90,8 @@ type UserMode = 'alumno' | 'entrenador';
 export default function Dashboard() {
   const { user: currentUser } = useAuth();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<UserMode | null>(null);
   const [showModeSelector, setShowModeSelector] = useState(false);
@@ -857,8 +862,8 @@ export default function Dashboard() {
                                 onClick={() => toggleExercise(detalle.id)}
                                 sx={{ cursor: 'pointer' }}
                               >
-                                <CardContent>
-                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: 1 }}>
+                                <CardContent sx={{ pb: isMobile && !isExerciseExpanded ? 2 : undefined }}>
+                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: isMobile && !isExerciseExpanded ? 0 : 1 }}>
                                     <Typography variant="h6" fontWeight="bold" component="span">
                                       {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
                                     </Typography>
@@ -887,22 +892,23 @@ export default function Dashboard() {
                                       <Chip label={`${detalle.carga} kg`} size="small" color="error" />
                                     )}
                                   </Box>
-                                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                                    <Button size="small" variant="outlined" onClick={(ev) => { ev.stopPropagation(); openEditDetalle(detalle); }}>Editar valores</Button>
-                                  </Box>
-                                  <Typography 
-                                    variant="body2" 
-                                    color="text.secondary"
-                                    sx={{
-                                      ...(!isExerciseExpanded && {
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
-                                      })
-                                    }}
-                                  >
-                                    {ejercicio?.descripcion}
-                                  </Typography>
+                                  
+                                  {/* En móvil: mostrar descripción y botón solo si está expandido */}
+                                  {/* En PC: mostrar siempre */}
+                                  {(isMobile ? isExerciseExpanded : true) && (
+                                    <>
+                                      <Typography 
+                                        variant="body2" 
+                                        color="text.secondary"
+                                        sx={{ mt: 1 }}
+                                      >
+                                        {ejercicio?.descripcion}
+                                      </Typography>
+                                      <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                                        <Button size="small" variant="outlined" onClick={(ev) => { ev.stopPropagation(); openEditDetalle(detalle); }}>Editar valores</Button>
+                                      </Box>
+                                    </>
+                                  )}
                                   {isExerciseExpanded && ejercicio && (ejercicio.imagenes || ejercicio.links) && (
                                     <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #eee' }}>
                                       {ejercicio.imagenes && ejercicio.imagenes.trim() && (
@@ -1000,8 +1006,8 @@ export default function Dashboard() {
                               onClick={() => toggleExercise(detalle.id)}
                               sx={{ cursor: 'pointer' }}
                             >
-                              <CardContent>
-                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: 1 }}>
+                              <CardContent sx={{ pb: isMobile && !isExerciseExpanded ? 2 : undefined }}>
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: isMobile && !isExerciseExpanded ? 0 : 1 }}>
                                   <Typography variant="h6" fontWeight="bold" component="span">
                                     {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
                                   </Typography>
@@ -1030,19 +1036,18 @@ export default function Dashboard() {
                                     <Chip label={`${detalle.carga} kg`} size="small" color="error" />
                                   )}
                                 </Box>
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary"
-                                  sx={{
-                                    ...(!isExerciseExpanded && {
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap'
-                                    })
-                                  }}
-                                >
-                                  {ejercicio?.descripcion}
-                                </Typography>
+                                
+                                {/* En móvil: mostrar descripción solo si está expandido */}
+                                {/* En PC: mostrar siempre */}
+                                {(isMobile ? isExerciseExpanded : true) && (
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary"
+                                    sx={{ mt: 1 }}
+                                  >
+                                    {ejercicio?.descripcion}
+                                  </Typography>
+                                )}
                                 {isExerciseExpanded && ejercicio && (ejercicio.imagenes || ejercicio.links) && (
                                   <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #eee' }}>
                                     {ejercicio.imagenes && ejercicio.imagenes.trim() && (
