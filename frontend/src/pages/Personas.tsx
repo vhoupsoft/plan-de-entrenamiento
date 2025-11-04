@@ -362,7 +362,7 @@ export default function Personas() {
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? (currentUser?.id === editing.id && !currentUser?.roles?.includes('Admin') ? 'Editar mi usuario' : 'Editar persona') : 'Nueva persona'}</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }} component="form" autoComplete="off">
             {/* Edición limitada para el propio usuario (Alumno o Entrenador no Admin) */}
             {editing && currentUser?.id === editing.id && !currentUser?.roles?.includes('Admin') ? (
               <>
@@ -382,6 +382,7 @@ export default function Personas() {
                   label="Usuario"
                   value={usuario}
                   onChange={(ev) => handleUsuarioChange(ev.target.value)}
+                  autoComplete="off"
                   InputProps={{
                     endAdornment: (
                       <Tooltip title="Sugerir usuario por nombre">
@@ -400,6 +401,7 @@ export default function Personas() {
                   onChange={(ev) => setClave(ev.target.value)}
                   error={!!errors.clave}
                   helperText={errors.clave}
+                  autoComplete="new-password"
                   InputProps={{
                     endAdornment: (
                       <IconButton onClick={() => setShowClave((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
@@ -416,6 +418,7 @@ export default function Personas() {
                   onChange={(ev) => setClave2(ev.target.value)}
                   error={!!errors.clave2}
                   helperText={errors.clave2}
+                  autoComplete="new-password"
                   InputProps={{
                     endAdornment: (
                       <IconButton onClick={() => setShowClave2((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
@@ -454,6 +457,7 @@ export default function Personas() {
               error={!!errors.usuario}
               helperText={errors.usuario}
               required
+              autoComplete="off"
               InputProps={{
                 endAdornment: (
                   <Tooltip title="Sugerir usuario por nombre">
@@ -473,6 +477,7 @@ export default function Personas() {
               error={!!errors.clave}
               helperText={errors.clave}
               required={!editing}
+              autoComplete="new-password"
               InputProps={{
                 endAdornment: (
                   <IconButton onClick={() => setShowClave((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
@@ -490,6 +495,7 @@ export default function Personas() {
               error={!!errors.clave2}
               helperText={errors.clave2}
               required={!editing}
+              autoComplete="new-password"
               InputProps={{
                 endAdornment: (
                   <IconButton onClick={() => setShowClave2((s) => !s)} edge="end" aria-label="mostrar/ocultar clave">
