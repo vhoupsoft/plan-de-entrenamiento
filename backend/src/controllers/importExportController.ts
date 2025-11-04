@@ -3,6 +3,36 @@ import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
 import prisma from '../prismaClient';
 import bcrypt from 'bcryptjs';
+import chardet from 'chardet';
+import iconv from 'iconv-lite';
+
+// Utilidad: decodificar buffer a UTF-8 autodetectando codificación (UTF-8 / Windows-1252 / ISO-8859-1)
+function decodeBufferToUtf8(buf: Buffer): string {
+  // Detectar con chardet (puede devolver 'UTF-8', 'windows-1252', 'ISO-8859-1', etc.)
+  const detected = chardet.detect(buf) || 'UTF-8';
+  const enc = (detected || '').toString().toLowerCase();
+
+  // Priorizar UTF-8 si tiene BOM explícito
+  if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+    return buf.toString('utf-8');
+  }
+
+  if (enc.includes('utf-8')) {
+    return buf.toString('utf-8');
+  }
+
+  // Mapear ANSI probable a win1252
+  if (enc.includes('windows-1252') || enc.includes('iso-8859-1') || enc.includes('latin')) {
+    return iconv.decode(buf, 'windows-1252');
+  }
+
+  // Fallback razonable
+  try {
+    return buf.toString('utf-8');
+  } catch {
+    return iconv.decode(buf, 'windows-1252');
+  }
+}
 
 // ============ EJERCICIOS ============
 
@@ -14,7 +44,7 @@ export const importEjercicios = async (req: Request, res: Response) => {
 
     const skipFirstRow = req.body.skipFirstRow === 'true' || req.body.skipFirstRow === true;
 
-    const csvContent = req.file.buffer.toString('utf-8');
+  const csvContent = decodeBufferToUtf8(req.file.buffer);
     const records = parse(csvContent, {
       delimiter: ';',
       columns: skipFirstRow ? true : ['Codigo', 'Descripcion', 'PasoImagenes', 'LinkExternos'],
@@ -46,9 +76,9 @@ export const importEjercicios = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Verificar si ya existe
-        const existe = await prisma.ejercicio.findUnique({
-          where: { codEjercicio: codigo },
+        // Verificar si ya existe (usar findFirst para evitar problemas de tipos si el cliente aún no reconoce el índice único)
+        const existe = await prisma.ejercicio.findFirst({
+          where: { codEjercicio: codigo as string },
         });
 
         if (existe) {
@@ -120,7 +150,7 @@ export const importPersonas = async (req: Request, res: Response) => {
 
     const skipFirstRow = req.body.skipFirstRow === 'true' || req.body.skipFirstRow === true;
 
-    const csvContent = req.file.buffer.toString('utf-8');
+  const csvContent = decodeBufferToUtf8(req.file.buffer);
     const records = parse(csvContent, {
       delimiter: ';',
       columns: skipFirstRow ? true : ['DNI', 'Nombre', 'esAlumno', 'esEntrenador', 'alumnoActivo', 'entrenadorActivo', 'usuario', 'clave'],
@@ -250,7 +280,7 @@ export const importEjerciciosJson = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No se recibió archivo JSON' });
     }
 
-    const jsonContent = req.file.buffer.toString('utf-8');
+  const jsonContent = decodeBufferToUtf8(req.file.buffer);
     const records = JSON.parse(jsonContent);
 
     if (!Array.isArray(records)) {
@@ -277,8 +307,8 @@ export const importEjerciciosJson = async (req: Request, res: Response) => {
         }
 
         // Verificar si ya existe
-        const existe = await prisma.ejercicio.findUnique({
-          where: { codEjercicio: codigo },
+        const existe = await prisma.ejercicio.findFirst({
+          where: { codEjercicio: codigo as string },
         });
 
         if (existe) {
@@ -340,7 +370,7 @@ export const importPersonasJson = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No se recibió archivo JSON' });
     }
 
-    const jsonContent = req.file.buffer.toString('utf-8');
+  const jsonContent = decodeBufferToUtf8(req.file.buffer);
     const records = JSON.parse(jsonContent);
 
     if (!Array.isArray(records)) {
