@@ -35,6 +35,17 @@ export const createPlanDetalle = async (req: Request, res: Response) => {
     const tiempoEnSegVal = tiempoEnSeg ? Number(tiempoEnSeg) : 0;
     const cargaVal = carga ? Number(carga) : 0;
     
+    // Si orden es 0 o no se proporciona, auto-incrementar basado en el último del día
+    let ordenFinal = orden ? Number(orden) : 0;
+    if (ordenFinal === 0) {
+      const maxOrden = await prisma.planDetalle.findFirst({
+        where: { planDiaId: Number(planDiaId) },
+        orderBy: { orden: 'desc' },
+        select: { orden: true }
+      });
+      ordenFinal = maxOrden ? maxOrden.orden + 1 : 1;
+    }
+    
     const data = {
       planDiaId: Number(planDiaId),
       ejercicioId: Number(ejercicioId),
@@ -42,7 +53,7 @@ export const createPlanDetalle = async (req: Request, res: Response) => {
       repeticiones: repeticionesVal,
       tiempoEnSeg: tiempoEnSegVal,
       carga: cargaVal,
-      orden: orden ? Number(orden) : 0,
+      orden: ordenFinal,
       etapaId: etapaId && etapaId !== '' ? Number(etapaId) : null,
     } as any;
     if (data.etapaId === null) delete data.etapaId;

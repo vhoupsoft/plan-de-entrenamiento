@@ -45,6 +45,13 @@ type Ejercicio = {
   links?: string | null;
 };
 
+type EjercicioAlternativo = {
+  id: number;
+  ejercicioId: number;
+  ejercicioAlternativoId: number;
+  alternativo: Ejercicio;
+};
+
 type Etapa = {
   id: number;
   descripcion: string;
@@ -109,6 +116,12 @@ export default function Dashboard() {
   
   // Estado por alumno: guarda diaIndex y etapas expandidas para cada alumno
   const [alumnoStates, setAlumnoStates] = useState<Map<number, { diaIndex: number, expandedEtapas: Set<number> }>>(new Map());
+  
+  // Modal de ejercicio alternativo
+  const [alternativoModalOpen, setAlternativoModalOpen] = useState(false);
+  const [selectedAlternativo, setSelectedAlternativo] = useState<Ejercicio | null>(null);
+  const [ejercicioAlternativos, setEjercicioAlternativos] = useState<Map<number, EjercicioAlternativo[]>>(new Map());
+  
   // Dialog for editing planDetalle values
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingDetalle, setEditingDetalle] = useState<any | null>(null);
@@ -530,7 +543,7 @@ export default function Dashboard() {
   };
 
   // Toggle ejercicios expandidos (descripción completa)
-  const toggleExercise = (detalleId: number) => {
+  const toggleExercise = (detalleId: number, ejercicioId?: number) => {
     setExpandedExercises(prev => {
       const newSet = new Set(prev);
       const opening = !newSet.has(detalleId);
@@ -539,12 +552,39 @@ export default function Dashboard() {
       } else {
         newSet.add(detalleId);
       }
-      // if opening, fetch latest historial for this detalle
+      // if opening, fetch latest historial for this detalle and alternativos for this ejercicio
       if (opening) {
         getActualHistorial(detalleId);
+        if (ejercicioId && !ejercicioAlternativos.has(ejercicioId)) {
+          fetchAlternativosForEjercicio(ejercicioId);
+        }
       }
       return newSet;
     });
+  };
+
+  // Funciones para manejar modal de ejercicio alternativo
+  const fetchAlternativosForEjercicio = async (ejercicioId: number) => {
+    try {
+      const res = await api.get(`/ejercicio-alternativos/${ejercicioId}`);
+      setEjercicioAlternativos(prev => {
+        const newMap = new Map(prev);
+        newMap.set(ejercicioId, res.data || []);
+        return newMap;
+      });
+    } catch (err) {
+      console.error('Error al cargar alternativos', err);
+    }
+  };
+
+  const openAlternativoModal = (ejercicio: Ejercicio) => {
+    setSelectedAlternativo(ejercicio);
+    setAlternativoModalOpen(true);
+  };
+
+  const closeAlternativoModal = () => {
+    setAlternativoModalOpen(false);
+    setSelectedAlternativo(null);
   };
 
   // Formatear tiempo: segundos con " o minutos'segundos" si >= 60
@@ -859,7 +899,7 @@ export default function Dashboard() {
                               <Card 
                                 key={detalle.id} 
                                 elevation={2}
-                                onClick={() => toggleExercise(detalle.id)}
+                                onClick={() => toggleExercise(detalle.id, detalle.ejercicioId)}
                                 sx={{ cursor: 'pointer' }}
                               >
                                 <CardContent sx={{ pb: isMobile && !isExerciseExpanded ? 2 : undefined }}>
@@ -904,10 +944,32 @@ export default function Dashboard() {
                                       >
                                         {ejercicio?.descripcion}
                                       </Typography>
-                                      <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                                      <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                         <Button size="small" variant="outlined" onClick={(ev) => { ev.stopPropagation(); openEditDetalle(detalle); }}>Editar valores</Button>
                                       </Box>
                                     </>
+                                  )}
+                                  {isExerciseExpanded && ejercicio && ejercicioAlternativos.get(ejercicio.id)?.length > 0 && (
+                                    <Box sx={{ mt: 1 }}>
+                                      <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                        Ejercicios alternativos:
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                        {ejercicioAlternativos.get(ejercicio.id)?.map((alt) => (
+                                          <Chip
+                                            key={alt.id}
+                                            label={alt.alternativo.codEjercicio}
+                                            size="small"
+                                            onClick={(ev) => {
+                                              ev.stopPropagation();
+                                              openAlternativoModal(alt.alternativo);
+                                            }}
+                                            sx={{ cursor: 'pointer' }}
+                                            color="info"
+                                          />
+                                        ))}
+                                      </Box>
+                                    </Box>
                                   )}
                                   {isExerciseExpanded && ejercicio && (ejercicio.imagenes || ejercicio.links) && (
                                     <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #eee' }}>
@@ -1003,7 +1065,7 @@ export default function Dashboard() {
                             <Card 
                               key={detalle.id} 
                               elevation={2}
-                              onClick={() => toggleExercise(detalle.id)}
+                              onClick={() => toggleExercise(detalle.id, detalle.ejercicioId)}
                               sx={{ cursor: 'pointer' }}
                             >
                               <CardContent sx={{ pb: isMobile && !isExerciseExpanded ? 2 : undefined }}>
@@ -1116,6 +1178,73 @@ export default function Dashboard() {
           </Box>
         </>
       )}
+
+      {/* Modal de ejercicio alternativo */}
+      <Dialog open={alternativoModalOpen} onClose={closeAlternativoModal} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Ejercicio Alternativo - {selectedAlternativo?.codEjercicio}
+        </DialogTitle>
+        <DialogContent>
+          {selectedAlternativo && (
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                <strong>Descripción:</strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                {selectedAlternativo.descripcion}
+              </Typography>
+
+              {selectedAlternativo.imagenes && selectedAlternativo.imagenes.trim() && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Imágenes:</strong>
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {selectedAlternativo.imagenes.split(',').filter(u => u.trim()).map((url, idx) => (
+                      <Box key={idx} sx={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
+                        <img 
+                          src={url.trim()} 
+                          alt={`${selectedAlternativo.codEjercicio} ${idx + 1}`}
+                          style={{ width: '150px', height: '150px', objectFit: 'cover', display: 'block' }}
+                          onError={(e) => { 
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {selectedAlternativo.links && selectedAlternativo.links.trim() && (
+                <Box>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Videos/Links:</strong>
+                  </Typography>
+                  <Stack spacing={0.5}>
+                    {selectedAlternativo.links.split(',').map((url, idx) => (
+                      <Box key={idx}>
+                        <a 
+                          href={url.trim()} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ fontSize: '0.875rem', color: '#1976d2', textDecoration: 'none' }}
+                        >
+                          {url.trim().length > 50 ? url.trim().substring(0, 50) + '...' : url.trim()}
+                        </a>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeAlternativoModal}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

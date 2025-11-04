@@ -14,8 +14,22 @@ model Ejercicio {
   imagenes     String?      @db.Text
   links        String?      @db.Text
   planDetalles PlanDetalle[]
+  // Relación de ejercicios alternativos
+  alternativosDesde EjercicioAlternativo[] @relation("EjercicioPrincipal")
+  alternativosHacia EjercicioAlternativo[] @relation("EjercicioAlternativo")
 
   @@map("ejercicios")
+}
+
+model EjercicioAlternativo {
+  id                  Int       @id @default(autoincrement())
+  ejercicioId         Int
+  ejercicioAlternativoId Int
+  ejercicio           Ejercicio @relation("EjercicioPrincipal", fields: [ejercicioId], references: [id], onDelete: Cascade)
+  alternativo         Ejercicio @relation("EjercicioAlternativo", fields: [ejercicioAlternativoId], references: [id], onDelete: Cascade)
+
+  @@unique([ejercicioId, ejercicioAlternativoId])
+  @@map("ejercicio_alternativos")
 }
 
 model Persona {

@@ -14,6 +14,7 @@ import rolesRoutes from './routes/roles';
 import rolUsuariosRoutes from './routes/rolUsuarios';
 import uploadRoutes from './routes/upload';
 import importExportRoutes from './routes/importExport';
+import ejercicioAlternativosRoutes from './routes/ejercicioAlternativos';
 
 dotenv.config({ path: './prisma/.env' });
 
@@ -35,6 +36,7 @@ app.use('/api/roles', rolesRoutes);
 app.use('/api/rol-usuarios', rolUsuariosRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/admin', importExportRoutes);
+app.use('/api/ejercicio-alternativos', ejercicioAlternativosRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

@@ -19,6 +19,17 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import {
+  List,
+  ListItem,
+  ListItemText,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+} from '@mui/material';
 
 type Ejercicio = {
   id: number;
@@ -26,6 +37,13 @@ type Ejercicio = {
   descripcion?: string | null;
   imagenes?: string | null;
   links?: string | null;
+};
+
+type EjercicioAlternativo = {
+  id: number;
+  ejercicioId: number;
+  ejercicioAlternativoId: number;
+  alternativo: Ejercicio;
 };
 
 export default function Ejercicios() {
@@ -52,6 +70,13 @@ export default function Ejercicios() {
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
   // get current user from context instead of localStorage
   const { user: currentUser } = useAuth();
+
+  // modal alternativos
+  const [alternativosModalOpen, setAlternativosModalOpen] = useState(false);
+  const [selectedEjercicio, setSelectedEjercicio] = useState<Ejercicio | null>(null);
+  const [alternativos, setAlternativos] = useState<EjercicioAlternativo[]>([]);
+  const [selectedNuevoAlternativo, setSelectedNuevoAlternativo] = useState<number | ''>('');
+  const [loadingAlternativos, setLoadingAlternativos] = useState(false);
 
   const fetch = async () => {
     setLoading(true);
@@ -185,6 +210,80 @@ export default function Ejercicios() {
     setEditing(null);
   };
 
+  // Funciones para modal de alternativos
+  const openAlternativosModal = async (ejercicio: Ejercicio) => {
+    setSelectedEjercicio(ejercicio);
+    setAlternativosModalOpen(true);
+    setLoadingAlternativos(true);
+    try {
+      const res = await api.get(`/ejercicio-alternativos/${ejercicio.id}`);
+      setAlternativos(res.data || []);
+      setSelectedNuevoAlternativo('');
+    } catch (err) {
+      console.error('Error al cargar alternativos', err);
+      setSnackMsg('Error al cargar alternativos');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    } finally {
+      setLoadingAlternativos(false);
+    }
+  };
+
+  const closeAlternativosModal = () => {
+    setAlternativosModalOpen(false);
+    setSelectedEjercicio(null);
+    setAlternativos([]);
+    setSelectedNuevoAlternativo('');
+  };
+
+  const addAlternativo = async () => {
+    if (!selectedNuevoAlternativo || !selectedEjercicio) return;
+    
+    try {
+      await api.post('/ejercicio-alternativos', {
+        ejercicioId: selectedEjercicio.id,
+        ejercicioAlternativoId: selectedNuevoAlternativo
+      });
+      
+      setSnackMsg('Alternativo agregado correctamente');
+      setSnackSeverity('success');
+      setSnackOpen(true);
+      
+      // Recargar alternativos
+      const res = await api.get(`/ejercicio-alternativos/${selectedEjercicio.id}`);
+      setAlternativos(res.data || []);
+      setSelectedNuevoAlternativo('');
+    } catch (err: any) {
+      console.error('Error al agregar alternativo', err);
+      setSnackMsg(err?.response?.data?.error || 'Error al agregar alternativo');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
+  };
+
+  const removeAlternativo = async (alternativoId: number) => {
+    if (!window.confirm('¿Quitar este ejercicio alternativo?')) return;
+    
+    try {
+      await api.delete(`/ejercicio-alternativos/${alternativoId}`);
+      
+      setSnackMsg('Alternativo quitado correctamente');
+      setSnackSeverity('success');
+      setSnackOpen(true);
+      
+      // Recargar alternativos
+      if (selectedEjercicio) {
+        const res = await api.get(`/ejercicio-alternativos/${selectedEjercicio.id}`);
+        setAlternativos(res.data || []);
+      }
+    } catch (err: any) {
+      console.error('Error al quitar alternativo', err);
+      setSnackMsg(err?.response?.data?.error || 'Error al quitar alternativo');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
+  };
+
   const validate = () => {
     const err: { cod?: string } = {};
     if (!cod || cod.trim().length === 0) err.cod = 'Código requerido';
@@ -291,6 +390,9 @@ export default function Ejercicios() {
                         <>
                           <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
                             <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => openAlternativosModal(it)} aria-label="alternativos">
+                            <SwapHorizIcon fontSize="small" />
                           </IconButton>
                           <IconButton size="small" onClick={() => onDelete(it)} aria-label="borrar">
                             <DeleteIcon fontSize="small" />
@@ -439,6 +541,93 @@ export default function Ejercicios() {
           <Button onClick={handleSave} variant="contained" disabled={isSaving}>
             {isSaving ? 'Guardando...' : 'Guardar'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de ejercicios alternativos */}
+      <Dialog open={alternativosModalOpen} onClose={closeAlternativosModal} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Ejercicios Alternativos - {selectedEjercicio?.codEjercicio}
+        </DialogTitle>
+        <DialogContent>
+          {loadingAlternativos ? (
+            <Box display="flex" justifyContent="center" p={2}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                Ejercicios alternativos configurados:
+              </Typography>
+              {alternativos.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  No hay ejercicios alternativos configurados
+                </Typography>
+              ) : (
+                <List dense>
+                  {alternativos.map((alt) => (
+                    <ListItem
+                      key={alt.id}
+                      secondaryAction={
+                        <IconButton
+                          edge="end"
+                          aria-label="quitar"
+                          size="small"
+                          onClick={() => removeAlternativo(alt.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText>
+                        <Chip 
+                          label={`${alt.alternativo.codEjercicio} - ${alt.alternativo.descripcion?.substring(0, 40) || ''}...`} 
+                          color="primary" 
+                          size="small" 
+                        />
+                      </ListItemText>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 3 }}>
+                Agregar ejercicio alternativo:
+              </Typography>
+              <Box display="flex" gap={1} alignItems="center">
+                <FormControl fullWidth size="small">
+                  <InputLabel>Seleccionar ejercicio</InputLabel>
+                  <Select
+                    value={selectedNuevoAlternativo}
+                    onChange={(e) => setSelectedNuevoAlternativo(e.target.value as number)}
+                    label="Seleccionar ejercicio"
+                  >
+                    <MenuItem value="">
+                      <em>Seleccionar...</em>
+                    </MenuItem>
+                    {items
+                      .filter((ej) => ej.id !== selectedEjercicio?.id && !alternativos.some((alt) => alt.ejercicioAlternativoId === ej.id))
+                      .map((ej) => (
+                        <MenuItem key={ej.id} value={ej.id}>
+                          {ej.codEjercicio} - {ej.descripcion}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  onClick={addAlternativo}
+                  disabled={!selectedNuevoAlternativo}
+                  size="small"
+                >
+                  Agregar
+                </Button>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeAlternativosModal}>Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Box>
