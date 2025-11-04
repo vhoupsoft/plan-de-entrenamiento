@@ -92,7 +92,34 @@ export const updatePlan = async (req: Request, res: Response) => {
 export const deletePlan = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    
+    // Eliminar en cascada: primero obtener todos los días del plan
+    const dias = await prisma.planDia.findMany({
+      where: { planId: id },
+      include: { detalles: true }
+    });
+
+    // Para cada detalle, eliminar su historial
+    for (const dia of dias) {
+      for (const detalle of dia.detalles) {
+        await prisma.planDetalleHistorial.deleteMany({
+          where: { planDetalleId: detalle.id }
+        });
+      }
+      // Eliminar los detalles del día
+      await prisma.planDetalle.deleteMany({
+        where: { planDiaId: dia.id }
+      });
+    }
+
+    // Eliminar los días
+    await prisma.planDia.deleteMany({
+      where: { planId: id }
+    });
+
+    // Finalmente eliminar el plan
     await prisma.plan.delete({ where: { id } });
+    
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
