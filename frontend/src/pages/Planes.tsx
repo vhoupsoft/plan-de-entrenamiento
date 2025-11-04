@@ -135,6 +135,7 @@ export default function Planes() {
   const [detalleCarga, setDetalleCarga] = useState('');
   const [detalleOrden, setDetalleOrden] = useState('');
   const [detalleEtapaId, setDetalleEtapaId] = useState<number | ''>('');
+  const [detalleFechaDesde, setDetalleFechaDesde] = useState<string>('');
   const [detalleErrors, setDetalleErrors] = useState<{ ejercicio?: string }>({});
 
   // snackbar
@@ -404,6 +405,20 @@ export default function Planes() {
     setDetalleCarga('0');
     setDetalleOrden('0');
     setDetalleEtapaId('');
+    // default fechaDesde to plan's fechaDesde if viewingPlan available
+    if (viewingPlan && viewingPlan.fechaDesde) {
+      const d = new Date(viewingPlan.fechaDesde);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
+    } else {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
+    }
     setDetalleErrors({});
   };
 
@@ -416,6 +431,12 @@ export default function Planes() {
     setDetalleCarga(String(detalle.carga));
     setDetalleOrden(String(detalle.orden));
     setDetalleEtapaId(detalle.etapaId || '');
+    // default fechaDesde to today (user can adjust)
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
     setDetalleErrors({});
   };
 
@@ -439,13 +460,20 @@ export default function Planes() {
         carga: Number(detalleCarga) || 0,
         orden: Number(detalleOrden) || 0,
         etapaId: detalleEtapaId ? Number(detalleEtapaId) : undefined,
+        fechaDesde: detalleFechaDesde,
       };
 
+      let detalleId: number | null = null;
       if (editingDetalle) {
         await api.put(`/plan-detalles/${editingDetalle.id}`, data);
+        detalleId = editingDetalle.id;
       } else {
-        await api.post('/plan-detalles', data);
+        const res = await api.post('/plan-detalles', data);
+        detalleId = res.data?.id || null;
       }
+
+      // backend will create initial historial atomically using fechaDesde provided in payload
+
       await fetchDetalles(selectedDia.id);
       setEditingDetalle(null);
       openDetalleCreate(); // reset form
@@ -644,6 +672,20 @@ export default function Planes() {
                       ))}
                     </Select>
                   </FormControl>
+                </Grid>
+              </Grid>
+
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Vigente desde"
+                    type="date"
+                    value={detalleFechaDesde}
+                    onChange={(e) => setDetalleFechaDesde(e.target.value)}
+                    fullWidth
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
                 </Grid>
               </Grid>
 

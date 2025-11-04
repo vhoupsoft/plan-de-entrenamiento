@@ -10,8 +10,11 @@ import {
   TextField,
   IconButton,
   Paper,
- } from '@mui/material';
- import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Stack } from '@mui/material';
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -107,6 +110,23 @@ export default function Dashboard() {
   const [editTiempo, setEditTiempo] = useState<number | ''>('');
   const [editCarga, setEditCarga] = useState<number | ''>('');
   const [editFechaDesde, setEditFechaDesde] = useState<string>('');
+  // cache latest historial per planDetalle.id
+  const [latestHistorial, setLatestHistorial] = useState<Record<number, any>>({});
+
+  const getActualHistorial = async (planDetalleId: number) => {
+    try {
+      const res = await fetch(`/api/plan-detalles/${planDetalleId}/actual`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      setLatestHistorial((s) => ({ ...s, [planDetalleId]: data }));
+      return data;
+    } catch (err) {
+      console.error('getActualHistorial', err);
+      return null;
+    }
+  };
 
   const openEditDetalle = (detalle: any) => {
     setEditingDetalle(detalle);
@@ -329,6 +349,13 @@ export default function Dashboard() {
     }
   };
 
+  const openAlumnoSelector = async () => {
+    if (alumnos.length === 0) {
+      await fetchAlumnos();
+    }
+    setShowAlumnoSelector(true);
+  };
+
   const handleModeSelect = async (selectedMode: UserMode) => {
     setMode(selectedMode);
     setShowModeSelector(false);
@@ -499,10 +526,15 @@ export default function Dashboard() {
   const toggleExercise = (detalleId: number) => {
     setExpandedExercises(prev => {
       const newSet = new Set(prev);
+      const opening = !newSet.has(detalleId);
       if (newSet.has(detalleId)) {
         newSet.delete(detalleId);
       } else {
         newSet.add(detalleId);
+      }
+      // if opening, fetch latest historial for this detalle
+      if (opening) {
+        getActualHistorial(detalleId);
       }
       return newSet;
     });
@@ -655,12 +687,35 @@ export default function Dashboard() {
         </DialogActions>
       </Dialog>
 
+      {/* Edit PlanDetalle Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Editar Detalle</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField label="Series" type="number" value={editSeries} onChange={(e) => setEditSeries(e.target.value === '' ? '' : Number(e.target.value))} fullWidth />
+            <TextField label="Repeticiones" type="number" value={editReps} onChange={(e) => setEditReps(e.target.value === '' ? '' : Number(e.target.value))} fullWidth />
+            <TextField label="Tiempo (seg)" type="number" value={editTiempo} onChange={(e) => setEditTiempo(e.target.value === '' ? '' : Number(e.target.value))} fullWidth />
+            <TextField label="Carga (kg)" type="number" value={editCarga} onChange={(e) => setEditCarga(e.target.value === '' ? '' : Number(e.target.value))} fullWidth />
+            <TextField label="Fecha desde" type="date" value={editFechaDesde} onChange={(e) => setEditFechaDesde(e.target.value)} InputLabelProps={{ shrink: true }} fullWidth />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={saveEditDetalle} variant="contained">Guardar</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Main Content */}
       {planesActivos.length === 0 ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', gap: 2 }}>
           <Typography variant="h6" color="text.secondary">
             No hay planes activos para mostrar
           </Typography>
+          {mode === 'entrenador' && (
+            <Button variant="contained" onClick={openAlumnoSelector}>
+              Seleccionar Alumnos
+            </Button>
+          )}
         </Box>
       ) : (
         <>
@@ -691,9 +746,21 @@ export default function Dashboard() {
                 </Box>
                 
                 <Box>
-                  <Typography variant="h5" fontWeight="bold">
-                    {currentPlan?.alumno.nombre}
-                  </Typography>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography variant="h5" fontWeight="bold">
+                      {currentPlan?.alumno.nombre}
+                    </Typography>
+                    {mode === 'entrenador' && (
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        onClick={openAlumnoSelector}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Cambiar alumnos
+                      </Button>
+                    )}
+                  </Box>
                   <Typography variant="body2" color="text.secondary">
                     Entrenador: {currentPlan?.entrenador.nombre}
                   </Typography>
@@ -858,7 +925,7 @@ export default function Dashboard() {
                                             ))}
                                           </Box>
                                         </Box>
-                                        {/* Dialog for editing PlanDetalle */}
+                                        
                                       )}
                                       {ejercicio.links && ejercicio.links.trim() && (
                                         <Box>
@@ -999,6 +1066,12 @@ export default function Dashboard() {
                                         </Box>
                                       </Box>
                                     )}
+                                      {/* Show effective date from historial if available for this detalle */}
+                                      {latestHistorial[detalle.id] && (
+                                        <Box sx={{ mt: 1 }}>
+                                          <Typography variant="caption" color="text.secondary">Valores vigentes desde: {new Date(latestHistorial[detalle.id].fechaDesde).toLocaleDateString()}</Typography>
+                                        </Box>
+                                      )}
                                     {ejercicio.links && ejercicio.links.trim() && (
                                       <Box>
                                         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>

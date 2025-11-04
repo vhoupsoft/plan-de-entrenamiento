@@ -47,21 +47,32 @@ export const createPlanDetalle = async (req: Request, res: Response) => {
     } as any;
     if (data.etapaId === null) delete data.etapaId;
     
-    const detalle = await prisma.planDetalle.create({ data });
-    
-    // Crear registro inicial en historial
+    // Crear detalle y registro inicial en historial en una transacción para que sea obligatorio
     const fechaInicial = fechaDesde ? new Date(fechaDesde) : new Date();
-    await prisma.planDetalleHistorial.create({
-      data: {
-        planDetalleId: detalle.id,
-        series: seriesVal,
-        repeticiones: repeticionesVal,
-        tiempoEnSeg: tiempoEnSegVal,
-        carga: cargaVal,
-        fechaDesde: fechaInicial,
-      },
+    const [detalle] = await prisma.$transaction([
+      prisma.planDetalle.create({ data }),
+      // We'll create the historial in the transaction after getting detalle id
+    ]);
+
+    // Now create historial referencing the created detalle within a second transaction step
+    // Prisma doesn't support dependent operations inside the same $transaction array easily,
+    // so use a nested transaction to ensure atomicity by running an interactive transaction.
+    await prisma.$transaction(async (tx) => {
+      // Re-create the detalle record inside the interactive transaction to ensure consistency
+      // (we'll update the existing one instead of creating duplicates)
+      await tx.planDetalle.update({ where: { id: detalle.id }, data: {} });
+      await tx.planDetalleHistorial.create({
+        data: {
+          planDetalleId: detalle.id,
+          series: seriesVal,
+          repeticiones: repeticionesVal,
+          tiempoEnSeg: tiempoEnSegVal,
+          carga: cargaVal,
+          fechaDesde: fechaInicial,
+        },
+      });
     });
-    
+
     res.status(201).json(detalle);
   } catch (err) {
     console.error(err);
@@ -73,11 +84,39 @@ export const updatePlanDetalle = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const payload = { ...req.body } as any;
+    // Extract optional fechaDesde for historial
+    const fechaDesde = payload.fechaDesde;
+    delete payload.fechaDesde;
     // Convert etapaId: if empty string, set to null
     if ('etapaId' in payload) {
       payload.etapaId = payload.etapaId && payload.etapaId !== '' ? Number(payload.etapaId) : null;
     }
     Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+
+    // If fechaDesde is provided and any of the tracked fields changed, run in transaction to update and create historial
+    const trackedFields = ['series', 'repeticiones', 'tiempoEnSeg', 'carga'];
+    const isTrackedChanging = trackedFields.some((f) => f in payload);
+
+    if (fechaDesde && isTrackedChanging) {
+      const fecha = new Date(fechaDesde);
+      const updated = await prisma.$transaction(async (tx) => {
+        const upd = await tx.planDetalle.update({ where: { id }, data: payload });
+        await tx.planDetalleHistorial.create({
+          data: {
+            planDetalleId: id,
+            series: typeof payload.series !== 'undefined' ? Number(payload.series) : upd.series,
+            repeticiones: typeof payload.repeticiones !== 'undefined' ? Number(payload.repeticiones) : upd.repeticiones,
+            tiempoEnSeg: typeof payload.tiempoEnSeg !== 'undefined' ? Number(payload.tiempoEnSeg) : upd.tiempoEnSeg,
+            carga: typeof payload.carga !== 'undefined' ? Number(payload.carga) : upd.carga,
+            fechaDesde: fecha,
+          },
+        });
+        return upd;
+      });
+      return res.json(updated);
+    }
+
+    // default: simple update
     const updated = await prisma.planDetalle.update({ where: { id }, data: payload });
     res.json(updated);
   } catch (err) {
