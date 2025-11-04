@@ -49,3 +49,33 @@ export const deleteRolUsuario = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 };
+
+// Obtener roles de un usuario específico
+export const getRolesByUsuario = async (req: Request, res: Response) => {
+  try {
+    const usuarioId = Number(req.params.usuarioId);
+    const roleAssignments = await prisma.rolUsuario.findMany({
+      where: { usuarioId },
+      include: { rol: true }
+    });
+    res.json(roleAssignments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// Obtener usuarios de un rol específico
+export const getUsersByRol = async (req: Request, res: Response) => {
+  try {
+    const rolId = Number(req.params.rolId);
+    const userAssignments = await prisma.rolUsuario.findMany({
+      where: { rolId },
+      include: { usuario: true }
+    });
+    res.json(userAssignments);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};

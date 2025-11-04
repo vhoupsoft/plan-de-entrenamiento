@@ -135,3 +135,27 @@ export const deletePlanDetalle = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 };
+
+export const reorderPlanDetalles = async (req: Request, res: Response) => {
+  try {
+    const { updates } = req.body;
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ error: 'updates debe ser un array' });
+    }
+
+    // Actualizar todos los registros en una transacción
+    await prisma.$transaction(
+      updates.map((update: { id: number; orden: number }) =>
+        prisma.planDetalle.update({
+          where: { id: update.id },
+          data: { orden: update.orden },
+        })
+      )
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};

@@ -1,6 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import {
   Box,
   Button,
@@ -91,12 +109,94 @@ type Plan = {
   dias?: PlanDia[];
 };
 
+// Componente para item sortable (drag and drop)
+function SortableDetalleRow({ 
+  detalle, 
+  ejercicio, 
+  etapa, 
+  canEdit, 
+  onEdit, 
+  onDelete 
+}: { 
+  detalle: PlanDetalle; 
+  ejercicio?: Ejercicio; 
+  etapa?: Etapa; 
+  canEdit?: boolean; 
+  onEdit: (det: PlanDetalle) => void;
+  onDelete: (det: PlanDetalle) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: detalle.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    backgroundColor: isDragging ? '#f5f5f5' : 'transparent',
+  };
+
+  return (
+    <tr ref={setNodeRef} style={{ ...style, borderTop: '1px solid #eee' }}>
+      <td style={{ padding: 8 }}>
+        {canEdit && (
+          <IconButton 
+            size="small" 
+            {...attributes} 
+            {...listeners}
+            sx={{ cursor: 'grab', '&:active': { cursor: 'grabbing' } }}
+          >
+            <DragIndicatorIcon fontSize="small" />
+          </IconButton>
+        )}
+      </td>
+      <td style={{ padding: 8 }}>
+        {canEdit && (
+          <>
+            <IconButton size="small" onClick={() => onEdit(detalle)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={() => onDelete(detalle)}>
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </>
+        )}
+      </td>
+      <td style={{ padding: 8 }}>{detalle.orden}</td>
+      <td style={{ padding: 8 }}>
+        {ejercicio ? `${ejercicio.codEjercicio}` : `Ejercicio ${detalle.ejercicioId}`}
+      </td>
+      <td style={{ padding: 8, textAlign: 'center' }}>{detalle.series}</td>
+      <td style={{ padding: 8, textAlign: 'center' }}>{detalle.repeticiones}</td>
+      <td style={{ padding: 8, textAlign: 'center' }}>{detalle.tiempoEnSeg}s</td>
+      <td style={{ padding: 8, textAlign: 'center' }}>{detalle.carga}kg</td>
+      <td style={{ padding: 8 }}>{etapa ? etapa.descripcion : '-'}</td>
+    </tr>
+  );
+}
+
 export default function Planes() {
   const [items, setItems] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [etapas, setEtapas] = useState<Etapa[]>([]);
+
+  // drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // ref para scroll automático al editar
+  const detalleFormRef = useRef<HTMLDivElement>(null);
 
   // dialog/form state for Plan
   const [open, setOpen] = useState(false);
@@ -475,6 +575,52 @@ export default function Planes() {
     const dd = String(today.getDate()).padStart(2, '0');
     setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
     setDetalleErrors({});
+    
+    // Scroll automático al formulario de edición
+    setTimeout(() => {
+      detalleFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = detalles.findIndex((d) => d.id === active.id);
+    const newIndex = detalles.findIndex((d) => d.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Reordenar en el estado local
+    const newDetalles = arrayMove(detalles, oldIndex, newIndex);
+    
+    // Actualizar los números de orden
+    const updates = newDetalles.map((det, index) => ({
+      id: det.id,
+      orden: index + 1,
+    }));
+
+    // Actualizar el estado local inmediatamente para feedback visual
+    setDetalles(newDetalles.map((det, index) => ({ ...det, orden: index + 1 })));
+
+    try {
+      // Llamar al backend para persistir el cambio
+      await api.put('/plan-detalles/reorder', { updates });
+      
+      setSnackMsg('Orden actualizado correctamente');
+      setSnackSeverity('success');
+      setSnackOpen(true);
+    } catch (err: any) {
+      console.error('reorder error', err);
+      // Revertir en caso de error
+      fetchDetalles(selectedDia!.id);
+      setSnackMsg(err?.response?.data?.error || 'Error al reordenar');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
   };
 
   const validateDetalle = () => {
@@ -609,7 +755,7 @@ export default function Planes() {
         </DialogTitle>
         <DialogContent>
           {canEdit && (
-            <Box sx={{ mt: 2, mb: 3 }}>
+            <Box ref={detalleFormRef} sx={{ mt: 2, mb: 3 }}>
               <Typography variant="subtitle2" gutterBottom>
                 {editingDetalle ? 'Editar ejercicio' : 'Agregar ejercicio'}
               </Typography>
@@ -751,53 +897,51 @@ export default function Planes() {
                 No hay ejercicios agregados aún.
               </Typography>
             ) : (
-              <Box sx={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #eee' }}>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Orden</th>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Ejercicio</th>
-                      <th style={{ textAlign: 'center', padding: 8 }}>Series</th>
-                      <th style={{ textAlign: 'center', padding: 8 }}>Reps</th>
-                      <th style={{ textAlign: 'center', padding: 8 }}>Tiempo</th>
-                      <th style={{ textAlign: 'center', padding: 8 }}>Carga</th>
-                      <th style={{ textAlign: 'left', padding: 8 }}>Etapa</th>
-                    </tr>
-                  </thead>
-                <tbody>
-                  {detalles.sort((a, b) => a.orden - b.orden).map((det) => {
-                    const ej = ejercicios.find((e) => e.id === det.ejercicioId);
-                    const et = etapas.find((e) => e.id === det.etapaId);
-                    return (
-                      <tr key={det.id} style={{ borderTop: '1px solid #eee' }}>
-                        <td style={{ padding: 8 }}>
-                          {canEdit && (
-                            <>
-                              <IconButton size="small" onClick={() => openDetalleEdit(det)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton size="small" onClick={() => onDeleteDetalle(det)}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </>
-                          )}
-                        </td>
-                        <td style={{ padding: 8 }}>{det.orden}</td>
-                        <td style={{ padding: 8 }}>
-                          {ej ? `${ej.codEjercicio}` : `Ejercicio ${det.ejercicioId}`}
-                        </td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.series}</td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.repeticiones}</td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.tiempoEnSeg}s</td>
-                        <td style={{ padding: 8, textAlign: 'center' }}>{det.carga}kg</td>
-                        <td style={{ padding: 8 }}>{et ? et.descripcion : '-'}</td>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <Box sx={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #eee' }}>
+                        <th style={{ textAlign: 'left', padding: 8 }}>Arrastrar</th>
+                        <th style={{ textAlign: 'left', padding: 8 }}>Acciones</th>
+                        <th style={{ textAlign: 'left', padding: 8 }}>Orden</th>
+                        <th style={{ textAlign: 'left', padding: 8 }}>Ejercicio</th>
+                        <th style={{ textAlign: 'center', padding: 8 }}>Series</th>
+                        <th style={{ textAlign: 'center', padding: 8 }}>Reps</th>
+                        <th style={{ textAlign: 'center', padding: 8 }}>Tiempo</th>
+                        <th style={{ textAlign: 'center', padding: 8 }}>Carga</th>
+                        <th style={{ textAlign: 'left', padding: 8 }}>Etapa</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </Box>
+                    </thead>
+                    <tbody>
+                      <SortableContext
+                        items={detalles.map((d) => d.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {detalles.sort((a, b) => a.orden - b.orden).map((det) => {
+                          const ej = ejercicios.find((e) => e.id === det.ejercicioId);
+                          const et = etapas.find((e) => e.id === det.etapaId);
+                          return (
+                            <SortableDetalleRow
+                              key={det.id}
+                              detalle={det}
+                              ejercicio={ej}
+                              etapa={et}
+                              canEdit={canEdit}
+                              onEdit={openDetalleEdit}
+                              onDelete={onDeleteDetalle}
+                            />
+                          );
+                        })}
+                      </SortableContext>
+                    </tbody>
+                  </table>
+                </Box>
+              </DndContext>
             )}
           </Box>
         </DialogContent>

@@ -24,7 +24,18 @@ import EditIcon from '@mui/icons-material/Edit';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import { Tooltip } from '@mui/material';
+import SecurityIcon from '@mui/icons-material/Security';
+import {
+  Tooltip,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material';
 
 type Persona = {
   id: number;
@@ -35,6 +46,18 @@ type Persona = {
   esEntrenador: boolean;
   alumnoActivo: boolean;
   entrenadorActivo: boolean;
+};
+
+type Rol = {
+  id: number;
+  descripcion: string;
+};
+
+type RolUsuario = {
+  id: number;
+  rolId: number;
+  usuarioId: number;
+  rol: Rol;
 };
 
 export default function Personas() {
@@ -67,6 +90,14 @@ export default function Personas() {
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
   const { user: currentUser } = useAuth();
+
+  // roles modal
+  const [rolesModalOpen, setRolesModalOpen] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+  const [personaRoles, setPersonaRoles] = useState<RolUsuario[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<Rol[]>([]);
+  const [selectedNewRol, setSelectedNewRol] = useState<number | ''>('');
+  const [loadingRoles, setLoadingRoles] = useState(false);
 
   const fetch = async () => {
     setLoading(true);
@@ -157,6 +188,85 @@ export default function Personas() {
     if (isSaving) return;
     setOpen(false);
     setEditing(null);
+  };
+
+  // Funciones para modal de roles
+  const openRolesModal = async (persona: Persona) => {
+    setSelectedPersona(persona);
+    setRolesModalOpen(true);
+    setLoadingRoles(true);
+    try {
+      const [rolesRes, allRolesRes] = await Promise.all([
+        api.get(`/rol-usuarios/by-usuario/${persona.id}`),
+        api.get('/roles')
+      ]);
+      setPersonaRoles(rolesRes.data || []);
+      setAvailableRoles(allRolesRes.data || []);
+      setSelectedNewRol('');
+    } catch (err) {
+      console.error('Error al cargar roles', err);
+      setSnackMsg('Error al cargar roles');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  const closeRolesModal = () => {
+    setRolesModalOpen(false);
+    setSelectedPersona(null);
+    setPersonaRoles([]);
+    setAvailableRoles([]);
+    setSelectedNewRol('');
+  };
+
+  const addRoleToPersona = async () => {
+    if (!selectedNewRol || !selectedPersona) return;
+    
+    try {
+      await api.post('/rol-usuarios', {
+        usuarioId: selectedPersona.id,
+        rolId: selectedNewRol
+      });
+      
+      setSnackMsg('Rol asignado correctamente');
+      setSnackSeverity('success');
+      setSnackOpen(true);
+      
+      // Recargar roles
+      const rolesRes = await api.get(`/rol-usuarios/by-usuario/${selectedPersona.id}`);
+      setPersonaRoles(rolesRes.data || []);
+      setSelectedNewRol('');
+    } catch (err: any) {
+      console.error('Error al asignar rol', err);
+      setSnackMsg(err?.response?.data?.error || 'Error al asignar rol');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
+  };
+
+  const removeRoleFromPersona = async (rolUsuarioId: number) => {
+    if (!window.confirm('¿Quitar este rol del usuario?')) return;
+    
+    try {
+      await api.delete(`/rol-usuarios/${rolUsuarioId}`);
+      
+      setSnackMsg('Rol quitado correctamente');
+      setSnackSeverity('success');
+      setSnackOpen(true);
+      
+      // Recargar roles
+      if (selectedPersona) {
+        const rolesRes = await api.get(`/rol-usuarios/by-usuario/${selectedPersona.id}`);
+        setPersonaRoles(rolesRes.data || []);
+      }
+    } catch (err: any) {
+      console.error('Error al quitar rol', err);
+      setSnackMsg(err?.response?.data?.error || 'Error al quitar rol');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
   };
 
   const validate = () => {
@@ -318,6 +428,9 @@ export default function Personas() {
                         <>
                           <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
                             <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => openRolesModal(it)} aria-label="gestionar roles">
+                            <SecurityIcon fontSize="small" />
                           </IconButton>
                           <IconButton size="small" onClick={() => onDelete(it)} aria-label="borrar">
                             <DeleteIcon fontSize="small" />
@@ -534,6 +647,89 @@ export default function Personas() {
           <Button onClick={handleSave} variant="contained" disabled={isSaving}>
             {isSaving ? 'Guardando...' : 'Guardar'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de gestión de roles */}
+      <Dialog open={rolesModalOpen} onClose={closeRolesModal} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Roles de {selectedPersona?.nombre}
+        </DialogTitle>
+        <DialogContent>
+          {loadingRoles ? (
+            <Box display="flex" justifyContent="center" p={2}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                Roles asignados:
+              </Typography>
+              {personaRoles.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  No tiene roles asignados
+                </Typography>
+              ) : (
+                <List dense>
+                  {personaRoles.map((ru) => (
+                    <ListItem
+                      key={ru.id}
+                      secondaryAction={
+                        <IconButton
+                          edge="end"
+                          aria-label="quitar"
+                          size="small"
+                          onClick={() => removeRoleFromPersona(ru.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemText>
+                        <Chip label={ru.rol.descripcion} color="primary" size="small" />
+                      </ListItemText>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 3 }}>
+                Agregar rol:
+              </Typography>
+              <Box display="flex" gap={1} alignItems="center">
+                <FormControl fullWidth size="small">
+                  <InputLabel>Seleccionar rol</InputLabel>
+                  <Select
+                    value={selectedNewRol}
+                    onChange={(e) => setSelectedNewRol(e.target.value as number)}
+                    label="Seleccionar rol"
+                  >
+                    <MenuItem value="">
+                      <em>Seleccionar...</em>
+                    </MenuItem>
+                    {availableRoles
+                      .filter((r) => !personaRoles.some((pr) => pr.rolId === r.id))
+                      .map((r) => (
+                        <MenuItem key={r.id} value={r.id}>
+                          {r.descripcion}
+                        </MenuItem>
+                      ))}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  onClick={addRoleToPersona}
+                  disabled={!selectedNewRol}
+                  size="small"
+                >
+                  Agregar
+                </Button>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeRolesModal}>Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Box>
