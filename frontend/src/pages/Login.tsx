@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { TextField, Button, Container, Box, Typography, Alert } from "@mui/material";
+import { TextField, Button, Container, Box, Typography, Alert, IconButton } from "@mui/material";
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 export default function Login() {
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { setUser } = useAuth();
@@ -50,10 +53,21 @@ export default function Login() {
           <TextField 
             fullWidth 
             label="Clave" 
-            type="password" 
+            type={showPassword ? 'text' : 'password'}
             value={clave} 
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClave(e.target.value)} 
-            margin="normal" 
+            margin="normal"
+            InputProps={{
+              endAdornment: (
+                <IconButton
+                  onClick={() => setShowPassword(!showPassword)}
+                  edge="end"
+                  aria-label="mostrar/ocultar contraseña"
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              )
+            }}
           />
           <Button fullWidth variant="contained" type="submit" sx={{ mt: 2 }}>
             Entrar
