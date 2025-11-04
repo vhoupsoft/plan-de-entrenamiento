@@ -99,3 +99,107 @@ export const deletePlan = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error del servidor' });
   }
 };
+
+export const copyPlan = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    
+    // Obtener el plan original completo con todos sus días, detalles e historial
+    const originalPlan = await prisma.plan.findUnique({
+      where: { id },
+      include: {
+        dias: {
+          include: {
+            detalles: {
+              include: {
+                historial: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!originalPlan) {
+      return res.status(404).json({ error: 'Plan no encontrado' });
+    }
+
+    // Crear el nuevo plan (copia) - siempre inactivo
+    const now = new Date();
+    const newPlan = await prisma.plan.create({
+      data: {
+        alumnoId: originalPlan.alumnoId,
+        entrenadorId: originalPlan.entrenadorId,
+        fechaDesde: now,
+        fechaHasta: null,
+        activo: false, // Siempre crear como inactivo
+      }
+    });
+
+    // Copiar cada día del plan
+    for (const dia of originalPlan.dias) {
+      const newDia = await prisma.planDia.create({
+        data: {
+          planId: newPlan.id,
+          nroDia: dia.nroDia,
+          descripcion: dia.descripcion,
+        }
+      });
+
+      // Copiar cada detalle del día
+      for (const detalle of dia.detalles) {
+        const newDetalle = await prisma.planDetalle.create({
+          data: {
+            planDiaId: newDia.id,
+            ejercicioId: detalle.ejercicioId,
+            series: detalle.series,
+            repeticiones: detalle.repeticiones,
+            tiempoEnSeg: detalle.tiempoEnSeg,
+            carga: detalle.carga,
+            orden: detalle.orden,
+            etapaId: detalle.etapaId,
+          }
+        });
+
+        // Copiar el historial del detalle (último registro)
+        if (detalle.historial.length > 0) {
+          const ultimoHistorial = detalle.historial[detalle.historial.length - 1];
+          await prisma.planDetalleHistorial.create({
+            data: {
+              planDetalleId: newDetalle.id,
+              series: ultimoHistorial.series,
+              repeticiones: ultimoHistorial.repeticiones,
+              tiempoEnSeg: ultimoHistorial.tiempoEnSeg,
+              carga: ultimoHistorial.carga,
+              fechaDesde: now,
+            }
+          });
+        }
+      }
+    }
+
+    // Devolver el plan copiado con toda su estructura
+    const copiedPlan = await prisma.plan.findUnique({
+      where: { id: newPlan.id },
+      include: {
+        alumno: true,
+        entrenador: true,
+        dias: {
+          include: {
+            detalles: {
+              include: {
+                ejercicio: true,
+                historial: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    res.status(201).json(copiedPlan);
+  } catch (err) {
+    console.error('Error al copiar plan:', err);
+    res.status(500).json({ error: 'Error del servidor al copiar plan' });
+  }
+};

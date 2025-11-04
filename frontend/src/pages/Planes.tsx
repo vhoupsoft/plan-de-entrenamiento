@@ -33,6 +33,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 type Persona = {
   id: number;
@@ -142,6 +143,11 @@ export default function Planes() {
   const [snackOpen, setSnackOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState('');
   const [snackSeverity, setSnackSeverity] = useState<'success' | 'error'>('success');
+  
+  // copy confirmation dialog
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [planToCopy, setPlanToCopy] = useState<Plan | null>(null);
+  
   const { user: currentUser } = useAuth();
 
   const canEdit = currentUser?.roles?.includes('Admin') || currentUser?.roles?.includes('Entrenador');
@@ -289,6 +295,37 @@ export default function Planes() {
       setSnackMsg(err?.response?.data?.error || 'Error al borrar');
       setSnackSeverity('error');
       setSnackOpen(true);
+    }
+  };
+
+  const openCopyDialog = (plan: Plan) => {
+    setPlanToCopy(plan);
+    setCopyDialogOpen(true);
+  };
+
+  const closeCopyDialog = () => {
+    setPlanToCopy(null);
+    setCopyDialogOpen(false);
+  };
+
+  const confirmCopy = async () => {
+    if (!planToCopy) return;
+    
+    try {
+      setIsSaving(true);
+      await api.post(`/planes/${planToCopy.id}/copy`);
+      fetchPlanes();
+      setSnackMsg(`Plan copiado correctamente (inactivo). Alumno: ${planToCopy.alumno.nombre}`);
+      setSnackSeverity('success');
+      setSnackOpen(true);
+      closeCopyDialog();
+    } catch (err: any) {
+      console.error('copy plan error', err, err?.response?.data);
+      setSnackMsg(err?.response?.data?.error || 'Error al copiar plan');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -949,13 +986,17 @@ export default function Planes() {
                         </IconButton>
                         {canEdit && (
                           <>
-                            <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar">
+                            <IconButton size="small" onClick={() => openEdit(it)} aria-label="editar" title="Editar">
                               <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => openCopyDialog(it)} aria-label="copiar" title="Copiar plan">
+                              <ContentCopyIcon fontSize="small" />
                             </IconButton>
                             <IconButton
                               size="small"
                               onClick={() => onDelete(it)}
                               aria-label="borrar"
+                              title="Eliminar"
                               disabled={!currentUser?.roles?.includes('Admin')}
                             >
                               <DeleteIcon fontSize="small" />
@@ -991,6 +1032,32 @@ export default function Planes() {
           {snackMsg}
         </Alert>
       </Snackbar>
+
+      {/* Dialog de confirmación de copia */}
+      <Dialog open={copyDialogOpen} onClose={closeCopyDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Copiar plan</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            ¿Confirmar la copia del plan?
+          </Typography>
+          {planToCopy && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+              <Typography variant="body2"><strong>Alumno:</strong> {planToCopy.alumno.nombre}</Typography>
+              <Typography variant="body2"><strong>Entrenador:</strong> {planToCopy.entrenador.nombre}</Typography>
+              <Typography variant="body2"><strong>Fecha desde:</strong> {formatDate(planToCopy.fechaDesde)}</Typography>
+              <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                El plan se copiará completo (con todos sus días, ejercicios y valores) y se creará como <strong>inactivo</strong> para que puedas editarlo antes de activarlo.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCopyDialog} disabled={isSaving}>Cancelar</Button>
+          <Button onClick={confirmCopy} variant="contained" disabled={isSaving}>
+            {isSaving ? 'Copiando...' : 'Confirmar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? 'Editar plan' : 'Nuevo plan'}</DialogTitle>

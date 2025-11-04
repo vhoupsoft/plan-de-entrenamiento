@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listPlanes, getPlan, createPlan, updatePlan, deletePlan } from '../controllers/planController';
+import { listPlanes, getPlan, createPlan, updatePlan, deletePlan, copyPlan } from '../controllers/planController';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 
@@ -9,6 +9,7 @@ router.get('/', listPlanes);
 router.get('/:id', getPlan);
 // Creating/updating/deleting plans should be done by authenticated trainers or admins
 router.post('/', requireAuth, requireRole('Entrenador', 'Admin'), createPlan);
+router.post('/:id/copy', requireAuth, requireRole('Entrenador', 'Admin'), copyPlan);
 router.put('/:id', requireAuth, requireRole('Entrenador', 'Admin'), updatePlan);
 router.delete('/:id', requireAuth, requireRole('Admin'), deletePlan);
 
