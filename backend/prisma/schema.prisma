@@ -9,7 +9,7 @@ datasource db {
 
 model Ejercicio {
   id           Int           @id @default(autoincrement())
-  codEjercicio String       @db.VarChar(50)
+  codEjercicio String       @unique @db.VarChar(50)
   descripcion  String       @db.Text
   imagenes     String?      @db.Text
   links        String?      @db.Text

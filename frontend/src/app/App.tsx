@@ -7,6 +7,7 @@ import Personas from "../pages/Personas";
 import Etapas from "../pages/Etapas";
 import Planes from "../pages/Planes";
 import Roles from "../pages/Roles";
+import Administracion from "../pages/Administracion";
 import { Box, Button, Typography, Menu, MenuItem, IconButton } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { AuthProvider, useAuth } from "../context/AuthContext";
@@ -70,7 +71,7 @@ const Header: React.FC = () => {
             <MenuItem onClick={() => go('/etapas')}>Etapas</MenuItem>
             <MenuItem onClick={() => go('/personas')}>Personas</MenuItem>
             <MenuItem onClick={() => go('/planes')}>Planes</MenuItem>
-            {user?.roles?.includes('Admin') && <MenuItem onClick={() => go('/roles')}>Roles</MenuItem>}
+            {user?.roles?.includes('Admin') && <MenuItem onClick={() => go('/administracion')}>Administración</MenuItem>}
           </Menu>
         </Box>
       </Box>
@@ -143,6 +144,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Roles />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/administracion"
+          element={
+            <ProtectedRoute>
+              <Administracion />
             </ProtectedRoute>
           }
         />
