@@ -630,6 +630,23 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAlumnoIndex, planesActivos.length]);
 
+  // Cargar historial vigente de los ejercicios del día actual
+  useEffect(() => {
+    const currentPlan = planesActivos[currentAlumnoIndex];
+    if (!currentPlan?.dias?.[currentDiaIndex]?.detalles) return;
+    
+    const detalles = currentPlan.dias[currentDiaIndex].detalles;
+    // Cargar historial en background para cada detalle sin bloquear UI
+    detalles.forEach(detalle => {
+      // Solo cargar si no está ya en cache
+      if (!latestHistorial[detalle.id]) {
+        getActualHistorial(detalle.id).catch(() => {
+          // Silenciar errores, simplemente no habrá historial para ese ejercicio
+        });
+      }
+    });
+  }, [currentAlumnoIndex, currentDiaIndex, planesActivos]);
+
   // Touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;

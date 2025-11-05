@@ -92,7 +92,10 @@ export const getActualForDate = async (req: Request, res: Response) => {
         planDetalleId,
         fechaDesde: { lte: date }
       },
-      orderBy: { fechaDesde: 'desc' }
+      orderBy: [
+        { fechaDesde: 'desc' },
+        { id: 'desc' }  // Si hay varios con la misma fecha, obtener el más reciente por ID
+      ]
     });
 
     console.log('[getActualForDate] resultado:', row);
