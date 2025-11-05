@@ -259,6 +259,8 @@ export default function Planes() {
   const [alumnosForCopy, setAlumnosForCopy] = useState<Persona[]>([]);
   const [planesForCopy, setPlanesForCopy] = useState<Plan[]>([]);
   const [diasForCopy, setDiasForCopy] = useState<PlanDia[]>([]);
+    const [copyActionDialogOpen, setCopyActionDialogOpen] = useState(false);
+    const [existingExercisesCount, setExistingExercisesCount] = useState(0);
   
   const { user: currentUser } = useAuth();
 
@@ -827,64 +829,15 @@ export default function Planes() {
       const destRes = await api.get(`/plan-detalles?planDiaId=${destDiaId}`);
       const destDetalles: PlanDetalle[] = destRes.data || [];
       
-      // If destination has exercises and user didn't choose to replace
-      if (destDetalles.length > 0 && !copyReplaceExisting) {
-        const confirmMsg = `El día destino ya tiene ${destDetalles.length} ejercicio(s). ¿Desea agregar los nuevos ejercicios o reemplazarlos?\n\nPresione OK para AGREGAR o Cancelar para elegir otra opción.`;
-        const shouldAdd = window.confirm(confirmMsg);
-        
-        if (!shouldAdd) {
-          // Ask if they want to replace
-          const confirmReplace = window.confirm('¿Desea REEMPLAZAR todos los ejercicios existentes?');
-          if (confirmReplace) {
-            setCopyReplaceExisting(true);
-            // Delete existing exercises
-            for (const detalle of destDetalles) {
-              await api.delete(`/plan-detalles/${detalle.id}`);
-            }
-          } else {
-            return; // User cancelled
-          }
-        }
-      } else if (destDetalles.length > 0 && copyReplaceExisting) {
-        // Delete existing exercises if replace was selected
-        for (const detalle of destDetalles) {
-          await api.delete(`/plan-detalles/${detalle.id}`);
-        }
+        // If destination has exercises, show action dialog
+        if (destDetalles.length > 0) {
+          setExistingExercisesCount(destDetalles.length);
+          setCopyActionDialogOpen(true);
+          return; // Wait for user action
       }
 
-      // Copy exercises to destination
-      let maxOrden = 0;
-      if (!copyReplaceExisting && destDetalles.length > 0) {
-        maxOrden = Math.max(...destDetalles.map(d => d.orden), 0);
-      }
-
-      for (const detalle of sourceDetalles) {
-        await api.post('/plan-detalles', {
-          planDiaId: destDiaId,
-          ejercicioId: detalle.ejercicioId,
-          series: detalle.series,
-          repeticiones: detalle.repeticiones,
-          tiempoEnSeg: detalle.tiempoEnSeg,
-          carga: detalle.carga,
-          orden: maxOrden + detalle.orden,
-          etapaId: detalle.etapaId,
-        });
-      }
-
-      setSnackMsg(`${sourceDetalles.length} ejercicio(s) copiado(s) exitosamente`);
-      setSnackSeverity('success');
-      setSnackOpen(true);
-      setCopyDayDialogOpen(false);
-      
-      // Refresh if we're viewing the destination plan
-      if (viewingPlan && copyDestPlanId === viewingPlan.id) {
-        await fetchPlanDias(viewingPlan.id);
-      }
-      
-      // Refresh if we're viewing the destination day
-      if (selectedDia && selectedDia.id === destDiaId) {
-        await fetchDetalles(selectedDia.id);
-      }
+        // No exercises in destination, proceed directly
+        await executeCopyDay(false);
     } catch (err: any) {
       console.error('Error copying day', err);
       setSnackMsg(err?.response?.data?.error || 'Error al copiar día');
@@ -892,6 +845,82 @@ export default function Planes() {
       setSnackOpen(true);
     }
   };
+
+    const executeCopyDay = async (shouldReplace: boolean) => {
+      if (!dayToCopy || (!copyDestDiaId && copyDestDiaId !== -1)) return;
+
+      try {
+        setCopyActionDialogOpen(false);
+      
+        // Get source day exercises
+        const sourceRes = await api.get(`/plan-detalles?planDiaId=${dayToCopy.id}`);
+        const sourceDetalles: PlanDetalle[] = sourceRes.data || [];
+
+        let destDiaId = copyDestDiaId;
+
+        // If user wants to create a new day
+        if (copyDestDiaId === -1) {
+          if (!copyDestPlanId) return;
+        
+          const newDiaRes = await api.post('/plan-dias', {
+            planId: copyDestPlanId,
+            nroDia: dayToCopy.nroDia,
+            descripcion: dayToCopy.descripcion,
+          });
+          destDiaId = newDiaRes.data.id;
+        }
+
+        // Get destination day exercises
+        const destRes = await api.get(`/plan-detalles?planDiaId=${destDiaId}`);
+        const destDetalles: PlanDetalle[] = destRes.data || [];
+
+        // If replacing, delete existing exercises
+        if (shouldReplace && destDetalles.length > 0) {
+          for (const detalle of destDetalles) {
+            await api.delete(`/plan-detalles/${detalle.id}`);
+          }
+        }
+
+        // Copy exercises to destination
+        let maxOrden = 0;
+        if (!shouldReplace && destDetalles.length > 0) {
+          maxOrden = Math.max(...destDetalles.map(d => d.orden), 0);
+        }
+
+        for (const detalle of sourceDetalles) {
+          await api.post('/plan-detalles', {
+            planDiaId: destDiaId,
+            ejercicioId: detalle.ejercicioId,
+            series: detalle.series,
+            repeticiones: detalle.repeticiones,
+            tiempoEnSeg: detalle.tiempoEnSeg,
+            carga: detalle.carga,
+            orden: maxOrden + detalle.orden,
+            etapaId: detalle.etapaId,
+          });
+        }
+
+        setSnackMsg(`${sourceDetalles.length} ejercicio(s) copiado(s) exitosamente`);
+        setSnackSeverity('success');
+        setSnackOpen(true);
+        setCopyDayDialogOpen(false);
+      
+        // Refresh if we're viewing the destination plan
+        if (viewingPlan && copyDestPlanId === viewingPlan.id) {
+          await fetchPlanDias(viewingPlan.id);
+        }
+      
+        // Refresh if we're viewing the destination day
+        if (selectedDia && selectedDia.id === destDiaId) {
+          await fetchDetalles(selectedDia.id);
+        }
+      } catch (err: any) {
+        console.error('Error executing copy', err);
+        setSnackMsg(err?.response?.data?.error || 'Error al copiar día');
+        setSnackSeverity('error');
+        setSnackOpen(true);
+      }
+    };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -1239,6 +1268,38 @@ export default function Planes() {
           </Button>
         </DialogActions>
       </Dialog>
+
+        {/* Dialog de acción de copia */}
+        <Dialog open={copyActionDialogOpen} onClose={() => setCopyActionDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>El día destino tiene ejercicios</DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" gutterBottom>
+              El día destino ya tiene <strong>{existingExercisesCount} ejercicio(s)</strong> cargado(s).
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              ¿Qué desea hacer con los ejercicios existentes?
+            </Typography>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Agregar:</strong> Mantiene los ejercicios existentes y agrega los nuevos al final
+              </Typography>
+              <Typography variant="body2">
+                <strong>Reemplazar:</strong> Elimina todos los ejercicios existentes y los reemplaza con los nuevos
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCopyActionDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => executeCopyDay(false)} variant="outlined" color="primary">
+              Agregar
+            </Button>
+            <Button onClick={() => executeCopyDay(true)} variant="contained" color="warning">
+              Reemplazar
+            </Button>
+          </DialogActions>
+        </Dialog>
     </>
   );
 
