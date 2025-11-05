@@ -248,6 +248,17 @@ export default function Planes() {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [planToCopy, setPlanToCopy] = useState<Plan | null>(null);
   
+  // copy day dialog
+  const [copyDayDialogOpen, setCopyDayDialogOpen] = useState(false);
+  const [dayToCopy, setDayToCopy] = useState<PlanDia | null>(null);
+  const [copyDestAlumnoId, setCopyDestAlumnoId] = useState<number | ''>('');
+  const [copyDestPlanId, setCopyDestPlanId] = useState<number | ''>('');
+  const [copyDestDiaId, setCopyDestDiaId] = useState<number | ''>('');
+  const [copyReplaceExisting, setCopyReplaceExisting] = useState(false);
+  const [alumnosForCopy, setAlumnosForCopy] = useState<Persona[]>([]);
+  const [planesForCopy, setPlanesForCopy] = useState<Plan[]>([]);
+  const [diasForCopy, setDiasForCopy] = useState<PlanDia[]>([]);
+  
   const { user: currentUser } = useAuth();
 
   const canEdit = currentUser?.roles?.includes('Admin') || currentUser?.roles?.includes('Entrenador');
@@ -681,6 +692,157 @@ export default function Planes() {
     }
   };
 
+  // Copy day functionality
+  const openCopyDayDialog = async (dia: PlanDia) => {
+    setDayToCopy(dia);
+    setCopyDestAlumnoId('');
+    setCopyDestPlanId('');
+    setCopyDestDiaId('');
+    setCopyReplaceExisting(false);
+    setPlanesForCopy([]);
+    setDiasForCopy([]);
+    
+    try {
+      const res = await api.get('/personas', { params: { esAlumno: true, page: 1, pageSize: 1000 } });
+      setAlumnosForCopy(res.data.items || []);
+    } catch (err) {
+      console.error('Error loading alumnos for copy', err);
+      setSnackMsg('Error al cargar alumnos');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+      return;
+    }
+    
+    setCopyDayDialogOpen(true);
+  };
+
+  const handleCopyAlumnoChange = async (alumnoId: number) => {
+    setCopyDestAlumnoId(alumnoId);
+    setCopyDestPlanId('');
+    setCopyDestDiaId('');
+    setDiasForCopy([]);
+    
+    if (!alumnoId) {
+      setPlanesForCopy([]);
+      return;
+    }
+    
+    try {
+      const res = await api.get('/planes', { params: { alumnoId, page: 1, pageSize: 1000 } });
+      setPlanesForCopy(res.data.items || []);
+    } catch (err) {
+      console.error('Error loading planes for copy', err);
+      setSnackMsg('Error al cargar planes');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
+  };
+
+  const handleCopyPlanChange = async (planId: number) => {
+    setCopyDestPlanId(planId);
+    setCopyDestDiaId('');
+    
+    if (!planId) {
+      setDiasForCopy([]);
+      return;
+    }
+    
+    try {
+      const res = await api.get(`/plan-dias/plan/${planId}`);
+      setDiasForCopy(res.data || []);
+    } catch (err) {
+      console.error('Error loading dias for copy', err);
+      setSnackMsg('Error al cargar días');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
+  };
+
+  const confirmCopyDay = async () => {
+    if (!dayToCopy || !copyDestDiaId) {
+      setSnackMsg('Debe seleccionar un día destino');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+      return;
+    }
+
+    try {
+      // Get source day exercises
+      const sourceRes = await api.get(`/plan-detalles/dia/${dayToCopy.id}`);
+      const sourceDetalles: PlanDetalle[] = sourceRes.data || [];
+      
+      if (sourceDetalles.length === 0) {
+        setSnackMsg('El día origen no tiene ejercicios para copiar');
+        setSnackSeverity('error');
+        setSnackOpen(true);
+        return;
+      }
+
+      // Get destination day exercises
+      const destRes = await api.get(`/plan-detalles/dia/${copyDestDiaId}`);
+      const destDetalles: PlanDetalle[] = destRes.data || [];
+      
+      // If destination has exercises and user didn't choose to replace
+      if (destDetalles.length > 0 && !copyReplaceExisting) {
+        const confirmMsg = `El día destino ya tiene ${destDetalles.length} ejercicio(s). ¿Desea agregar los nuevos ejercicios o reemplazarlos?\n\nPresione OK para AGREGAR o Cancelar para elegir otra opción.`;
+        const shouldAdd = window.confirm(confirmMsg);
+        
+        if (!shouldAdd) {
+          // Ask if they want to replace
+          const confirmReplace = window.confirm('¿Desea REEMPLAZAR todos los ejercicios existentes?');
+          if (confirmReplace) {
+            setCopyReplaceExisting(true);
+            // Delete existing exercises
+            for (const detalle of destDetalles) {
+              await api.delete(`/plan-detalles/${detalle.id}`);
+            }
+          } else {
+            return; // User cancelled
+          }
+        }
+      } else if (destDetalles.length > 0 && copyReplaceExisting) {
+        // Delete existing exercises if replace was selected
+        for (const detalle of destDetalles) {
+          await api.delete(`/plan-detalles/${detalle.id}`);
+        }
+      }
+
+      // Copy exercises to destination
+      let maxOrden = 0;
+      if (!copyReplaceExisting && destDetalles.length > 0) {
+        maxOrden = Math.max(...destDetalles.map(d => d.orden), 0);
+      }
+
+      for (const detalle of sourceDetalles) {
+        await api.post('/plan-detalles', {
+          planDiaId: copyDestDiaId,
+          ejercicioId: detalle.ejercicioId,
+          series: detalle.series,
+          repeticiones: detalle.repeticiones,
+          tiempoEnSeg: detalle.tiempoEnSeg,
+          carga: detalle.carga,
+          orden: maxOrden + detalle.orden,
+          etapaId: detalle.etapaId,
+        });
+      }
+
+      setSnackMsg(`${sourceDetalles.length} ejercicio(s) copiado(s) exitosamente`);
+      setSnackSeverity('success');
+      setSnackOpen(true);
+      setCopyDayDialogOpen(false);
+      
+      // Refresh if we're viewing the destination day
+      if (selectedDia && selectedDia.id === copyDestDiaId) {
+        await fetchDetalles(selectedDia.id);
+      }
+    } catch (err: any) {
+      console.error('Error copying day', err);
+      setSnackMsg(err?.response?.data?.error || 'Error al copiar día');
+      setSnackSeverity('error');
+      setSnackOpen(true);
+    }
+  };
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('es-AR');
@@ -941,6 +1103,89 @@ export default function Planes() {
           <Button onClick={closeDetalleDialog}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dialog for copying day */}
+      <Dialog open={copyDayDialogOpen} onClose={() => setCopyDayDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Copiar Día {dayToCopy?.nroDia} a otro plan</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Seleccione el destino donde desea copiar los ejercicios del día {dayToCopy?.nroDia}
+            </Typography>
+            
+            <FormControl fullWidth required>
+              <InputLabel>Alumno</InputLabel>
+              <Select
+                value={copyDestAlumnoId}
+                onChange={(e) => handleCopyAlumnoChange(e.target.value as number)}
+                label="Alumno"
+              >
+                <MenuItem value="">
+                  <em>Seleccionar alumno</em>
+                </MenuItem>
+                {alumnosForCopy.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.nombre}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {copyDestAlumnoId && (
+              <FormControl fullWidth required>
+                <InputLabel>Plan</InputLabel>
+                <Select
+                  value={copyDestPlanId}
+                  onChange={(e) => handleCopyPlanChange(e.target.value as number)}
+                  label="Plan"
+                >
+                  <MenuItem value="">
+                    <em>Seleccionar plan</em>
+                  </MenuItem>
+                  {planesForCopy.map((plan) => (
+                    <MenuItem key={plan.id} value={plan.id}>
+                      {formatDate(plan.fechaDesde)} - {formatDate(plan.fechaHasta)}
+                      {plan.activo && ' (Activo)'}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {copyDestPlanId && (
+              <FormControl fullWidth required>
+                <InputLabel>Día destino</InputLabel>
+                <Select
+                  value={copyDestDiaId}
+                  onChange={(e) => setCopyDestDiaId(e.target.value as number)}
+                  label="Día destino"
+                >
+                  <MenuItem value="">
+                    <em>Seleccionar día</em>
+                  </MenuItem>
+                  {diasForCopy.map((dia) => (
+                    <MenuItem key={dia.id} value={dia.id}>
+                      Día {dia.nroDia} - {dia.descripcion}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCopyDayDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={confirmCopyDay} 
+            variant="contained" 
+            disabled={!copyDestDiaId}
+          >
+            Copiar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 
@@ -959,7 +1204,7 @@ export default function Planes() {
           <Grid container spacing={2}>
             <Grid item xs={6}>
               <Typography variant="body2" color="text.secondary">Alumno:</Typography>
-              <Typography variant="body1">{viewingPlan.alumno.nombre}</Typography>
+              <Typography variant="body1" fontWeight="bold">{viewingPlan.alumno.nombre}</Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2" color="text.secondary">Entrenador:</Typography>
@@ -1025,15 +1270,26 @@ export default function Planes() {
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       {dia.descripcion}
                     </Typography>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      sx={{ mt: 1 }}
-                      onClick={() => openDetallesView(dia)}
-                    >
-                      Ver ejercicios
-                    </Button>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        onClick={() => openDetallesView(dia)}
+                      >
+                        Ver ejercicios
+                      </Button>
+                      {canEdit && (
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => openCopyDayDialog(dia)}
+                          title="Compartir día"
+                        >
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Stack>
                   </CardContent>
                 </Card>
               </Grid>
