@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import axios from "axios";
 import App from "./app/App";
 import "./styles.css";
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
 // Si hay un token de una sesión previa, configurar el header de Authorization
 const token = localStorage.getItem("token");
@@ -21,3 +22,6 @@ if (root) {
     </React.StrictMode>
   );
 }
+
+// Register service worker for PWA
+serviceWorkerRegistration.register();
