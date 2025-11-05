@@ -19,10 +19,15 @@ export const createHistorial = async (req: Request, res: Response) => {
   try {
     const planDetalleId = Number(req.params.id);
     const { series, repeticiones, tiempoEnSeg, carga, fechaDesde } = req.body;
+    console.log('[createHistorial] planDetalleId:', planDetalleId, 'body:', req.body);
+    
     if (!fechaDesde) return res.status(400).json({ error: 'fechaDesde es requerida' });
 
     const pd = await prisma.planDetalle.findUnique({ where: { id: planDetalleId } });
-    if (!pd) return res.status(404).json({ error: 'PlanDetalle no encontrado' });
+    if (!pd) {
+      console.log('[createHistorial] PlanDetalle no encontrado:', planDetalleId);
+      return res.status(404).json({ error: 'PlanDetalle no encontrado' });
+    }
 
     const row = await prisma.planDetalleHistorial.create({
       data: {
@@ -35,9 +40,10 @@ export const createHistorial = async (req: Request, res: Response) => {
       }
     });
 
+    console.log('[createHistorial] Historial creado:', row);
     res.status(201).json(row);
   } catch (err) {
-    console.error('createHistorial', err);
+    console.error('createHistorial ERROR:', err);
     res.status(500).json({ error: 'Error del servidor' });
   }
 };
@@ -46,6 +52,7 @@ export const getActualForDate = async (req: Request, res: Response) => {
   try {
     const planDetalleId = Number(req.params.id);
     const date = req.query.date ? new Date(String(req.query.date)) : new Date();
+    console.log('[getActualForDate] planDetalleId:', planDetalleId, 'date:', date);
 
     const row = await prisma.planDetalleHistorial.findFirst({
       where: {
@@ -55,10 +62,11 @@ export const getActualForDate = async (req: Request, res: Response) => {
       orderBy: { fechaDesde: 'desc' }
     });
 
+    console.log('[getActualForDate] resultado:', row);
     if (!row) return res.status(404).json({ error: 'No hay historial para la fecha indicada' });
     res.json(row);
   } catch (err) {
-    console.error('getActualForDate', err);
+    console.error('getActualForDate ERROR:', err);
     res.status(500).json({ error: 'Error del servidor' });
   }
 };

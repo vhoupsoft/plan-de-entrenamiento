@@ -135,25 +135,32 @@ export default function Dashboard() {
 
   const getActualHistorial = async (planDetalleId: number) => {
     try {
-      const res = await fetch(`/api/plan-detalles/${planDetalleId}/actual`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      setLatestHistorial((s) => ({ ...s, [planDetalleId]: data }));
-      return data;
-    } catch (err) {
-      console.error('getActualHistorial', err);
+      console.log('Obteniendo historial vigente para planDetalle:', planDetalleId);
+      const res = await api.get(`/plan-detalles/${planDetalleId}/actual`);
+      console.log('Historial vigente recibido:', res.data);
+      setLatestHistorial((s) => ({ ...s, [planDetalleId]: res.data }));
+      return res.data;
+    } catch (err: any) {
+      console.error('getActualHistorial error:', err);
+      console.error('Error status:', err.response?.status);
+      console.error('Error data:', err.response?.data);
+      // Si no hay historial (404), retornar null
+      if (err.response?.status === 404) {
+        console.log('No hay historial vigente para este detalle, usando valores base del plan');
+        return null;
+      }
       return null;
     }
   };
 
-  const openEditDetalle = (detalle: any) => {
+  const openEditDetalle = async (detalle: any) => {
     setEditingDetalle(detalle);
-    setEditSeries(detalle.series ?? '');
-    setEditReps(detalle.repeticiones ?? '');
-    setEditTiempo(detalle.tiempoEnSeg ?? '');
-    setEditCarga(detalle.carga ?? '');
+    // Asegurar que tenemos el historial vigente antes de abrir el modal
+    const hv = await getActualHistorial(detalle.id);
+    setEditSeries((hv?.series ?? detalle.series) ?? '');
+    setEditReps((hv?.repeticiones ?? detalle.repeticiones) ?? '');
+    setEditTiempo((hv?.tiempoEnSeg ?? detalle.tiempoEnSeg) ?? '');
+    setEditCarga((hv?.carga ?? detalle.carga) ?? '');
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -166,23 +173,27 @@ export default function Dashboard() {
     if (!editingDetalle) return;
     try {
       const payload: any = {
-        series: editSeries === '' ? undefined : Number(editSeries),
-        repeticiones: editReps === '' ? undefined : Number(editReps),
-        tiempoEnSeg: editTiempo === '' ? undefined : Number(editTiempo),
-        carga: editCarga === '' ? undefined : Number(editCarga),
         fechaDesde: editFechaDesde,
       };
-      await fetch(`/api/plan-detalles/${editingDetalle.id}/historial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify(payload),
-      });
-      // refresh plan/diarios
-      initializeDashboard();
-      setEditDialogOpen(false);
-    } catch (err) {
-      console.error('saveEditDetalle', err);
-      alert('Error al guardar historial');
+      
+      // Solo incluir campos que el usuario modificó (diferentes de vacío)
+      if (editSeries !== '') payload.series = Number(editSeries);
+      if (editReps !== '') payload.repeticiones = Number(editReps);
+      if (editTiempo !== '') payload.tiempoEnSeg = Number(editTiempo);
+      if (editCarga !== '') payload.carga = Number(editCarga);
+      
+      console.log('Guardando historial para planDetalle:', editingDetalle.id, 'Payload:', payload);
+      const response = await api.post(`/plan-detalles/${editingDetalle.id}/historial`, payload);
+      console.log('Respuesta del servidor:', response.data);
+      alert('Cambios guardados correctamente');
+  // refrescar valores vigentes solo para este detalle
+  await getActualHistorial(editingDetalle.id);
+  setEditDialogOpen(false);
+    } catch (err: any) {
+      console.error('saveEditDetalle error completo:', err);
+      console.error('Response data:', err.response?.data);
+      console.error('Response status:', err.response?.status);
+      alert(`Error al guardar historial: ${err.response?.data?.error || err.message}`);
     }
   };
   
@@ -244,10 +255,13 @@ export default function Dashboard() {
     const params = new URLSearchParams(location.search);
     const shouldReset = params.get('reset') === '1';
     
-    if (!initialized || shouldReset) {
+    // Solo reinicializar si:
+    // 1. No está inicializado Y hay usuario
+    // 2. Hay reset=1 en URL
+    if (currentUser && (!initialized || shouldReset)) {
       initializeDashboard();
     }
-  }, [currentUser, location.search, initialized]);
+  }, [currentUser?.id, location.search, initialized]);
 
   const initializeDashboard = async () => {
     setLoading(true);
@@ -293,18 +307,7 @@ export default function Dashboard() {
     }
 
     if (saved) {
-      // Restaurar modo y selección si aplica
-      if (saved.mode === 'alumno' && isAlumno) {
-        setMode('alumno');
-        setSelectedAlumnoIds([currentUser!.id]);
-        await loadAlumnoPlans([currentUser!.id]);
-      } else if (saved.mode === 'entrenador' && isEntrenador && saved.selectedAlumnoIds?.length) {
-        setMode('entrenador');
-        setSelectedAlumnoIds(saved.selectedAlumnoIds);
-        await loadAlumnoPlans(saved.selectedAlumnoIds);
-      }
-
-      // Reconstruir alumnoStates desde guardado
+      // Reconstruir alumnoStates desde guardado PRIMERO
       if (saved.alumnoStates) {
         const map = new Map<number, { diaIndex: number; expandedEtapas: Set<number> }>();
         Object.entries(saved.alumnoStates).forEach(([k, v]) => {
@@ -313,11 +316,22 @@ export default function Dashboard() {
         setAlumnoStates(map);
       }
 
-      // Restaurar índice de alumno actual si hay planes
-      if (planesActivos.length > 0) {
-        const idx = Math.min(Math.max(saved.currentAlumnoIndex || 0, 0), Math.max(planesActivos.length - 1, 0));
-        setCurrentAlumnoIndex(idx);
-        restoreAlumnoState(idx);
+      // Restaurar modo y selección si aplica
+      if (saved.mode === 'alumno' && isAlumno) {
+        setMode('alumno');
+        setSelectedAlumnoIds([currentUser!.id]);
+        await loadAlumnoPlans([currentUser!.id], saved.currentAlumnoIndex || 0);
+      } else if (saved.mode === 'entrenador' && isEntrenador) {
+        setMode('entrenador');
+        // Si hay alumnos guardados, cargar sus planes
+        if (saved.selectedAlumnoIds?.length) {
+          setSelectedAlumnoIds(saved.selectedAlumnoIds);
+          await loadAlumnoPlans(saved.selectedAlumnoIds, saved.currentAlumnoIndex || 0);
+        } else {
+          // Si no hay alumnos seleccionados previamente, cargar lista pero NO abrir el selector
+          await fetchAlumnos();
+          // Usuario debe pulsar "Cambiar alumnos" manualmente
+        }
       }
     } else {
       if (isAlumno && !isEntrenador) {
@@ -325,7 +339,7 @@ export default function Dashboard() {
         setMode('alumno');
         await loadAlumnoPlans([currentUser!.id]);
       } else if (isEntrenador && !isAlumno) {
-        // Solo entrenador: mostrar selector de alumnos
+        // Solo entrenador: mostrar selector de alumnos SOLO en primer acceso
         setMode('entrenador');
         await fetchAlumnos();
         setShowAlumnoSelector(true);
@@ -399,7 +413,7 @@ export default function Dashboard() {
     savePersistentState();
   };
 
-  const loadAlumnoPlans = async (alumnoIds: number[]) => {
+  const loadAlumnoPlans = async (alumnoIds: number[], savedAlumnoIndex?: number) => {
     try {
       setLoading(true);
       const res = await api.get('/planes');
@@ -420,13 +434,44 @@ export default function Dashboard() {
           for (const dia of plan.dias) {
             const detallesRes = await api.get(`/plan-detalles?planDiaId=${dia.id}`);
             dia.detalles = detallesRes.data || [];
+            
+            // Cargar historial vigente para cada detalle
+            if (dia.detalles) {
+              for (const detalle of dia.detalles) {
+                try {
+                  await getActualHistorial(detalle.id);
+                } catch (err) {
+                  console.error(`No se pudo cargar historial para detalle ${detalle.id}`, err);
+                }
+              }
+            }
           }
         }
       }
 
       setPlanesActivos(activePlans);
-      setCurrentAlumnoIndex(0);
-      setCurrentDiaIndex(0);
+      
+      // Restaurar índice de alumno si se proporciona
+      const indexToRestore = savedAlumnoIndex !== undefined 
+        ? Math.min(Math.max(savedAlumnoIndex, 0), Math.max(activePlans.length - 1, 0))
+        : 0;
+      
+      setCurrentAlumnoIndex(indexToRestore);
+      
+      // Restaurar estado del alumno (día y etapas expandidas)
+      if (activePlans.length > 0) {
+        const alumnoId = activePlans[indexToRestore]?.alumnoId;
+        if (alumnoId) {
+          const savedState = alumnoStates.get(alumnoId);
+          if (savedState) {
+            setCurrentDiaIndex(savedState.diaIndex);
+            setExpandedEtapas(new Set(savedState.expandedEtapas));
+          } else {
+            setCurrentDiaIndex(0);
+            setExpandedEtapas(new Set());
+          }
+        }
+      }
     } catch (err) {
       console.error('load planes', err);
     } finally {
@@ -597,6 +642,14 @@ export default function Dashboard() {
     return segs > 0 ? `${minutos}'${segs}"` : `${minutos}'`;
   };
 
+  // Siempre que cambia el alumno actual o se cargan planes, restaurar su estado guardado
+  useEffect(() => {
+    if (planesActivos.length > 0) {
+      restoreAlumnoState(currentAlumnoIndex);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAlumnoIndex, planesActivos.length]);
+
   // Touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -690,7 +743,7 @@ export default function Dashboard() {
       </Dialog>
 
       {/* Alumno Selector Dialog */}
-      <Dialog open={showAlumnoSelector} maxWidth="sm" fullWidth>
+      <Dialog open={showAlumnoSelector} onClose={() => { setShowAlumnoSelector(false); savePersistentState(); }} maxWidth="sm" fullWidth>
         <DialogTitle>Seleccionar Alumnos</DialogTitle>
         <DialogContent>
           <Typography variant="body2" gutterBottom>
@@ -728,6 +781,9 @@ export default function Dashboard() {
           </Box>
         </DialogContent>
         <DialogActions>
+          <Button onClick={() => { setShowAlumnoSelector(false); savePersistentState(); }}>
+            Cancelar
+          </Button>
           <Button onClick={handleAlumnosConfirm} variant="contained" disabled={selectedAlumnoIds.length === 0}>
             Confirmar
           </Button>
@@ -907,30 +963,41 @@ export default function Dashboard() {
                                     <Typography variant="h6" fontWeight="bold" component="span">
                                       {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
                                     </Typography>
-                                    {detalle.series > 0 && (
-                                      <Chip label={`${detalle.series} S`} size="small" color="secondary" />
-                                    )}
-                                    {detalle.repeticiones > 0 && (
-                                      <Chip 
-                                        label={`${detalle.repeticiones} R`} 
-                                        size="small" 
-                                        sx={{ bgcolor: '#4CAF50', color: '#fff', fontWeight: 500 }}
-                                      />
-                                    )}
-                                    {detalle.tiempoEnSeg > 0 && (
-                                      <Chip 
-                                        label={formatTiempo(detalle.tiempoEnSeg)} 
-                                        size="small" 
-                                        sx={{ 
-                                          bgcolor: detalle.tiempoEnSeg < 60 ? '#87CEEB' : '#1976d2',
-                                          color: detalle.tiempoEnSeg < 60 ? '#0d47a1' : '#fff',
-                                          fontWeight: 500
-                                        }}
-                                      />
-                                    )}
-                                    {detalle.carga > 0 && (
-                                      <Chip label={`${detalle.carga} kg`} size="small" color="error" />
-                                    )}
+                                    {(() => {
+                                      const hv = latestHistorial[detalle.id];
+                                      const series = hv?.series ?? detalle.series;
+                                      const repeticiones = hv?.repeticiones ?? detalle.repeticiones;
+                                      const tiempoEnSeg = hv?.tiempoEnSeg ?? detalle.tiempoEnSeg;
+                                      const carga = hv?.carga ?? detalle.carga;
+                                      return (
+                                        <>
+                                          {series > 0 && (
+                                            <Chip label={`${series} S`} size="small" color="secondary" />
+                                          )}
+                                          {repeticiones > 0 && (
+                                            <Chip 
+                                              label={`${repeticiones} R`} 
+                                              size="small" 
+                                              sx={{ bgcolor: '#4CAF50', color: '#fff', fontWeight: 500 }}
+                                            />
+                                          )}
+                                          {tiempoEnSeg > 0 && (
+                                            <Chip 
+                                              label={formatTiempo(tiempoEnSeg)} 
+                                              size="small" 
+                                              sx={{ 
+                                                bgcolor: tiempoEnSeg < 60 ? '#87CEEB' : '#1976d2',
+                                                color: tiempoEnSeg < 60 ? '#0d47a1' : '#fff',
+                                                fontWeight: 500
+                                              }}
+                                            />
+                                          )}
+                                          {carga > 0 && (
+                                            <Chip label={`${carga} kg`} size="small" color="error" />
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </Box>
                                   
                                   {/* En móvil: mostrar descripción y botón solo si está expandido */}
@@ -949,7 +1016,7 @@ export default function Dashboard() {
                                       </Box>
                                     </>
                                   )}
-                                  {isExerciseExpanded && ejercicio && ejercicioAlternativos.get(ejercicio.id)?.length > 0 && (
+                                  {isExerciseExpanded && ejercicio && (ejercicioAlternativos.get(ejercicio.id)?.length ?? 0) > 0 && (
                                     <Box sx={{ mt: 1 }}>
                                       <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
                                         Ejercicios alternativos:
@@ -1069,34 +1136,45 @@ export default function Dashboard() {
                               sx={{ cursor: 'pointer' }}
                             >
                               <CardContent sx={{ pb: isMobile && !isExerciseExpanded ? 2 : undefined }}>
-                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: isMobile && !isExerciseExpanded ? 0 : 1 }}>
+                                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', mb: isMobile && !isExerciseExpanded ? 0 : 1 }}>
                                   <Typography variant="h6" fontWeight="bold" component="span">
                                     {ejercicio?.codEjercicio || `Ejercicio ${detalle.ejercicioId}`}
                                   </Typography>
-                                  {detalle.series > 0 && (
-                                    <Chip label={`${detalle.series} S`} size="small" color="secondary" />
-                                  )}
-                                  {detalle.repeticiones > 0 && (
-                                    <Chip 
-                                      label={`${detalle.repeticiones} R`} 
-                                      size="small" 
-                                      sx={{ bgcolor: '#4CAF50', color: '#fff', fontWeight: 500 }}
-                                    />
-                                  )}
-                                  {detalle.tiempoEnSeg > 0 && (
-                                    <Chip 
-                                      label={formatTiempo(detalle.tiempoEnSeg)} 
-                                      size="small" 
-                                      sx={{ 
-                                        bgcolor: detalle.tiempoEnSeg < 60 ? '#87CEEB' : '#1976d2',
-                                        color: detalle.tiempoEnSeg < 60 ? '#0d47a1' : '#fff',
-                                        fontWeight: 500
-                                      }}
-                                    />
-                                  )}
-                                  {detalle.carga > 0 && (
-                                    <Chip label={`${detalle.carga} kg`} size="small" color="error" />
-                                  )}
+                                  {(() => {
+                                    const hv = latestHistorial[detalle.id];
+                                    const series = hv?.series ?? detalle.series;
+                                    const repeticiones = hv?.repeticiones ?? detalle.repeticiones;
+                                    const tiempoEnSeg = hv?.tiempoEnSeg ?? detalle.tiempoEnSeg;
+                                    const carga = hv?.carga ?? detalle.carga;
+                                    return (
+                                      <>
+                                        {series > 0 && (
+                                          <Chip label={`${series} S`} size="small" color="secondary" />
+                                        )}
+                                        {repeticiones > 0 && (
+                                          <Chip 
+                                            label={`${repeticiones} R`} 
+                                            size="small" 
+                                            sx={{ bgcolor: '#4CAF50', color: '#fff', fontWeight: 500 }}
+                                          />
+                                        )}
+                                        {tiempoEnSeg > 0 && (
+                                          <Chip 
+                                            label={formatTiempo(tiempoEnSeg)} 
+                                            size="small" 
+                                            sx={{ 
+                                              bgcolor: tiempoEnSeg < 60 ? '#87CEEB' : '#1976d2',
+                                              color: tiempoEnSeg < 60 ? '#0d47a1' : '#fff',
+                                              fontWeight: 500
+                                            }}
+                                          />
+                                        )}
+                                        {carga > 0 && (
+                                          <Chip label={`${carga} kg`} size="small" color="error" />
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </Box>
                                 
                                 {/* En móvil: mostrar descripción solo si está expandido */}
