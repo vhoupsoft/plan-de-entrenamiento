@@ -763,7 +763,7 @@ export default function Planes() {
     }
     
     try {
-      const res = await api.get(`/plan-dias/plan/${planId}`);
+      const res = await api.get(`/plan-dias?planId=${planId}`);
       setDiasForCopy(res.data || []);
     } catch (err) {
       console.error('Error loading dias for copy', err);
