@@ -702,16 +702,9 @@ export default function Planes() {
     setPlanesForCopy([]);
     setDiasForCopy([]);
     
-    try {
-      const res = await api.get('/personas', { params: { esAlumno: true, page: 1, pageSize: 1000 } });
-      setAlumnosForCopy(res.data.items || []);
-    } catch (err) {
-      console.error('Error loading alumnos for copy', err);
-      setSnackMsg('Error al cargar alumnos');
-      setSnackSeverity('error');
-      setSnackOpen(true);
-      return;
-    }
+    // Use already loaded personas, filtered for alumnos
+    const alumnos = personas.filter(p => p.esAlumno !== false);
+    setAlumnosForCopy(alumnos);
     
     setCopyDayDialogOpen(true);
   };
