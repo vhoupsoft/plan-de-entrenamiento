@@ -216,6 +216,7 @@ export default function Planes() {
   const [viewingPlan, setViewingPlan] = useState<Plan | null>(null);
   const [planDias, setPlanDias] = useState<PlanDia[]>([]);
   const [loadingDias, setLoadingDias] = useState(false);
+  const [ejercicioCountByDia, setEjercicioCountByDia] = useState<Record<number, number>>({});
 
   // PlanDia dialog state
   const [diaDialogOpen, setDiaDialogOpen] = useState(false);
@@ -306,7 +307,23 @@ export default function Planes() {
     setLoadingDias(true);
     try {
       const res = await api.get(`/plan-dias?planId=${planId}`);
-      setPlanDias(res.data || []);
+      const dias = res.data || [];
+      setPlanDias(dias);
+      
+      // Load exercise count for each day
+      const counts: Record<number, number> = {};
+      await Promise.all(
+        dias.map(async (dia: PlanDia) => {
+          try {
+            const detallesRes = await api.get(`/plan-detalles?planDiaId=${dia.id}`);
+            counts[dia.id] = (detallesRes.data || []).length;
+          } catch (err) {
+            console.error(`Error loading detalles for dia ${dia.id}`, err);
+            counts[dia.id] = 0;
+          }
+        })
+      );
+      setEjercicioCountByDia(counts);
     } catch (err) {
       console.error('fetch plan dias', err);
     } finally {
@@ -317,7 +334,10 @@ export default function Planes() {
   const fetchDetalles = async (planDiaId: number) => {
     try {
       const res = await api.get(`/plan-detalles?planDiaId=${planDiaId}`);
-      setDetalles(res.data || []);
+      const detallesData = res.data || [];
+      setDetalles(detallesData);
+      // Update the counter for this specific day
+      setEjercicioCountByDia(prev => ({ ...prev, [planDiaId]: detallesData.length }));
     } catch (err) {
       console.error('fetch detalles', err);
     }
@@ -721,8 +741,10 @@ export default function Planes() {
     }
     
     try {
-      const res = await api.get('/planes', { params: { alumnoId, page: 1, pageSize: 1000 } });
-      setPlanesForCopy(res.data.items || []);
+      const res = await api.get('/planes');
+      // Filter planes by alumnoId in the frontend
+      const planesDelAlumno = (res.data || []).filter((p: Plan) => p.alumnoId === alumnoId);
+      setPlanesForCopy(planesDelAlumno);
     } catch (err) {
       console.error('Error loading planes for copy', err);
       setSnackMsg('Error al cargar planes');
@@ -1270,7 +1292,7 @@ export default function Planes() {
                         size="small"
                         onClick={() => openDetallesView(dia)}
                       >
-                        Ver ejercicios
+                        Ver ejercicios ({ejercicioCountByDia[dia.id] ?? 0})
                       </Button>
                       {canEdit && (
                         <IconButton
