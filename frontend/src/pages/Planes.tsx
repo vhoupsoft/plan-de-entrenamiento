@@ -774,7 +774,7 @@ export default function Planes() {
   };
 
   const confirmCopyDay = async () => {
-    if (!dayToCopy || !copyDestDiaId) {
+    if (!dayToCopy || (!copyDestDiaId && copyDestDiaId !== -1)) {
       setSnackMsg('Debe seleccionar un día destino');
       setSnackSeverity('error');
       setSnackOpen(true);
@@ -783,7 +783,7 @@ export default function Planes() {
 
     try {
       // Get source day exercises
-      const sourceRes = await api.get(`/plan-detalles/dia/${dayToCopy.id}`);
+      const sourceRes = await api.get(`/plan-detalles?planDiaId=${dayToCopy.id}`);
       const sourceDetalles: PlanDetalle[] = sourceRes.data || [];
       
       if (sourceDetalles.length === 0) {
@@ -793,8 +793,38 @@ export default function Planes() {
         return;
       }
 
+      let destDiaId = copyDestDiaId;
+
+      // If user wants to create a new day
+      if (copyDestDiaId === -1) {
+        if (!copyDestPlanId) {
+          setSnackMsg('Error: No hay plan destino seleccionado');
+          setSnackSeverity('error');
+          setSnackOpen(true);
+          return;
+        }
+        
+        try {
+          const newDiaRes = await api.post('/plan-dias', {
+            planId: copyDestPlanId,
+            nroDia: dayToCopy.nroDia,
+            descripcion: dayToCopy.descripcion,
+          });
+          destDiaId = newDiaRes.data.id;
+          setSnackMsg(`Día ${dayToCopy.nroDia} creado. Copiando ejercicios...`);
+          setSnackSeverity('success');
+          setSnackOpen(true);
+        } catch (err: any) {
+          console.error('Error creating new day', err);
+          setSnackMsg(err?.response?.data?.error || 'Error al crear el nuevo día');
+          setSnackSeverity('error');
+          setSnackOpen(true);
+          return;
+        }
+      }
+
       // Get destination day exercises
-      const destRes = await api.get(`/plan-detalles/dia/${copyDestDiaId}`);
+      const destRes = await api.get(`/plan-detalles?planDiaId=${destDiaId}`);
       const destDetalles: PlanDetalle[] = destRes.data || [];
       
       // If destination has exercises and user didn't choose to replace
@@ -830,7 +860,7 @@ export default function Planes() {
 
       for (const detalle of sourceDetalles) {
         await api.post('/plan-detalles', {
-          planDiaId: copyDestDiaId,
+          planDiaId: destDiaId,
           ejercicioId: detalle.ejercicioId,
           series: detalle.series,
           repeticiones: detalle.repeticiones,
@@ -846,8 +876,13 @@ export default function Planes() {
       setSnackOpen(true);
       setCopyDayDialogOpen(false);
       
+      // Refresh if we're viewing the destination plan
+      if (viewingPlan && copyDestPlanId === viewingPlan.id) {
+        await fetchPlanDias(viewingPlan.id);
+      }
+      
       // Refresh if we're viewing the destination day
-      if (selectedDia && selectedDia.id === copyDestDiaId) {
+      if (selectedDia && selectedDia.id === destDiaId) {
         await fetchDetalles(selectedDia.id);
       }
     } catch (err: any) {
@@ -1178,6 +1213,9 @@ export default function Planes() {
                   <MenuItem value="">
                     <em>Seleccionar día</em>
                   </MenuItem>
+                  <MenuItem value={-1}>
+                    <strong>+ Crear nuevo día (Día {dayToCopy?.nroDia} - {dayToCopy?.descripcion})</strong>
+                  </MenuItem>
                   {diasForCopy.map((dia) => (
                     <MenuItem key={dia.id} value={dia.id}>
                       Día {dia.nroDia} - {dia.descripcion}
@@ -1195,7 +1233,7 @@ export default function Planes() {
           <Button 
             onClick={confirmCopyDay} 
             variant="contained" 
-            disabled={!copyDestDiaId}
+            disabled={!copyDestDiaId && copyDestDiaId !== -1}
           >
             Copiar
           </Button>
