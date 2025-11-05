@@ -8,8 +8,8 @@ const router = Router();
 // List historial for a planDetalle
 router.get('/:id/historial', requireAuth, listHistorial);
 
-// Create historial entry (only Entrenador/Admin)
-router.post('/:id/historial', requireAuth, requireRole('Admin', 'Entrenador'), createHistorial);
+// Create historial entry (Entrenador/Admin pueden modificar cualquier historial, Alumno solo el suyo)
+router.post('/:id/historial', requireAuth, createHistorial);
 
 // Get actual values effective for a date (optional query param ?date=YYYY-MM-DD)
 router.get('/:id/actual', requireAuth, getActualForDate);

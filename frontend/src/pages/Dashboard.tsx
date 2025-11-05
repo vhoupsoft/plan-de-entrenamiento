@@ -135,20 +135,15 @@ export default function Dashboard() {
 
   const getActualHistorial = async (planDetalleId: number) => {
     try {
-      console.log('Obteniendo historial vigente para planDetalle:', planDetalleId);
       const res = await api.get(`/plan-detalles/${planDetalleId}/actual`);
-      console.log('Historial vigente recibido:', res.data);
       setLatestHistorial((s) => ({ ...s, [planDetalleId]: res.data }));
       return res.data;
     } catch (err: any) {
-      console.error('getActualHistorial error:', err);
-      console.error('Error status:', err.response?.status);
-      console.error('Error data:', err.response?.data);
-      // Si no hay historial (404), retornar null
+      // Si no hay historial (404), retornar null sin error
       if (err.response?.status === 404) {
-        console.log('No hay historial vigente para este detalle, usando valores base del plan');
         return null;
       }
+      console.error('Error obteniendo historial:', err.response?.status, err.response?.data);
       return null;
     }
   };
@@ -182,22 +177,18 @@ export default function Dashboard() {
       if (editTiempo !== '') payload.tiempoEnSeg = Number(editTiempo);
       if (editCarga !== '') payload.carga = Number(editCarga);
       
-      console.log('Guardando historial para planDetalle:', editingDetalle.id, 'Payload:', payload);
       const response = await api.post(`/plan-detalles/${editingDetalle.id}/historial`, payload);
-      console.log('Respuesta del servidor:', response.data);
-      alert('Cambios guardados correctamente');
-  // refrescar valores vigentes solo para este detalle
-  await getActualHistorial(editingDetalle.id);
-  setEditDialogOpen(false);
+      
+      // Refrescar valores vigentes solo para este detalle
+      await getActualHistorial(editingDetalle.id);
+      setEditDialogOpen(false);
+      alert('✓ Cambios guardados');
     } catch (err: any) {
-      console.error('saveEditDetalle error completo:', err);
-      console.error('Response data:', err.response?.data);
-      console.error('Response status:', err.response?.status);
-      alert(`Error al guardar historial: ${err.response?.data?.error || err.message}`);
+      const errorMsg = err.response?.data?.error || err.message || 'Error desconocido';
+      console.error('Error al guardar:', err.response?.status, errorMsg);
+      alert(`✗ Error: ${errorMsg}`);
     }
-  };
-  
-  // Flag para evitar reinicialización cuando AuthContext revalida el usuario
+  };  // Flag para evitar reinicialización cuando AuthContext revalida el usuario
   const [initialized, setInitialized] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -434,17 +425,6 @@ export default function Dashboard() {
           for (const dia of plan.dias) {
             const detallesRes = await api.get(`/plan-detalles?planDiaId=${dia.id}`);
             dia.detalles = detallesRes.data || [];
-            
-            // Cargar historial vigente para cada detalle
-            if (dia.detalles) {
-              for (const detalle of dia.detalles) {
-                try {
-                  await getActualHistorial(detalle.id);
-                } catch (err) {
-                  console.error(`No se pudo cargar historial para detalle ${detalle.id}`, err);
-                }
-              }
-            }
           }
         }
       }

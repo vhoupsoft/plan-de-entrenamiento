@@ -15,7 +15,7 @@ export const listHistorial = async (req: Request, res: Response) => {
   }
 };
 
-export const createHistorial = async (req: Request, res: Response) => {
+export const createHistorial = async (req: any, res: Response) => {
   try {
     const planDetalleId = Number(req.params.id);
     const { series, repeticiones, tiempoEnSeg, carga, fechaDesde } = req.body;
@@ -23,10 +23,43 @@ export const createHistorial = async (req: Request, res: Response) => {
     
     if (!fechaDesde) return res.status(400).json({ error: 'fechaDesde es requerida' });
 
-    const pd = await prisma.planDetalle.findUnique({ where: { id: planDetalleId } });
+    // Buscar planDetalle con su plan y alumno
+    const pd = await prisma.planDetalle.findUnique({ 
+      where: { id: planDetalleId },
+      include: {
+        planDia: {
+          include: {
+            plan: true
+          }
+        }
+      }
+    });
+    
     if (!pd) {
       console.log('[createHistorial] PlanDetalle no encontrado:', planDetalleId);
       return res.status(404).json({ error: 'PlanDetalle no encontrado' });
+    }
+
+    // Verificar permisos: Entrenador/Admin pueden modificar cualquier historial, Alumno solo el suyo
+    const userId = req.user?.sub ? Number(req.user.sub) : null;
+    if (!userId) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    // Verificar si tiene rol Admin o Entrenador
+    const adminOrEntrenador = await prisma.rolUsuario.findFirst({
+      where: { 
+        usuarioId: userId, 
+        rol: { descripcion: { in: ['Admin', 'Entrenador'] } } 
+      }
+    });
+
+    // Si no es Admin/Entrenador, verificar que sea el alumno dueño del plan
+    if (!adminOrEntrenador) {
+      if (pd.planDia.plan.alumnoId !== userId) {
+        console.log('[createHistorial] Acceso denegado: usuario', userId, 'no es dueño del plan');
+        return res.status(403).json({ error: 'No autorizado para modificar este historial' });
+      }
     }
 
     const row = await prisma.planDetalleHistorial.create({
