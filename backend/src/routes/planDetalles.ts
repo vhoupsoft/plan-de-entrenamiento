@@ -10,6 +10,6 @@ router.get('/:id', getPlanDetalle);
 router.post('/', requireAuth, requireRole('Entrenador', 'Admin'), createPlanDetalle);
 router.put('/reorder', requireAuth, requireRole('Entrenador', 'Admin'), reorderPlanDetalles);
 router.put('/:id', requireAuth, requireRole('Entrenador', 'Admin'), updatePlanDetalle);
-router.delete('/:id', requireAuth, requireRole('Admin'), deletePlanDetalle);
+router.delete('/:id', requireAuth, requireRole('Entrenador', 'Admin'), deletePlanDetalle);
 
 export default router;

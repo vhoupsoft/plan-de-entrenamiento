@@ -542,20 +542,12 @@ export default function Planes() {
     setDetalleCarga('0');
     setDetalleOrden('0');
     setDetalleEtapaId('');
-    // default fechaDesde to plan's fechaDesde if viewingPlan available
-    if (viewingPlan && viewingPlan.fechaDesde) {
-      const d = new Date(viewingPlan.fechaDesde);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
-    } else {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
-    }
+    // Siempre usar la fecha de hoy como default para vigencia del historial
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setDetalleFechaDesde(`${yyyy}-${mm}-${dd}`);
     setDetalleErrors({});
   };
 
