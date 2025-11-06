@@ -2,9 +2,36 @@
 
 ## Problema: La app no funciona desde datos móviles
 
-Si la aplicación funciona en WiFi pero no en datos móviles (red celular), es porque el frontend necesita saber la URL **pública** del backend.
+Si la aplicación funciona en WiFi pero no en datos móviles (red celular), hay dos causas posibles:
 
-## Solución: Configurar VITE_API_URL
+1. **Problema de firewall/NAT de la red celular** (más común)
+2. **Configuración incorrecta del proxy de Vite**
+
+## ⚡ SOLUCIÓN RÁPIDA (Si ya tenés forwarding del 5173)
+
+**NO necesitás configurar nada**. El proxy de Vite ya maneja todo.
+
+Solo asegurate que:
+1. ✅ Forwarding del puerto **5173** configurado
+2. ✅ Backend corriendo en el mismo servidor
+3. ✅ Archivo `.env` **vacío o comentado** (usa proxy por defecto)
+
+Si seguís con problemas, puede ser:
+- El firewall de la red de Claro bloqueando el puerto
+- Problemas de DNS
+- IP pública dinámica que cambió
+
+**Prueba esto:**
+```bash
+# Desde tu móvil con datos, abrí Chrome y probá:
+http://TU_IP_PUBLICA:5173
+```
+
+Si no carga, el problema es de red/firewall, no de código.
+
+---
+
+## 🔧 Solución Avanzada: VITE_API_URL (Solo si backend está en otro servidor)
 
 ### Paso 1: Obtener tu IP pública o configurar dominio
 

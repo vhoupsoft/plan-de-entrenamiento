@@ -1,11 +1,13 @@
 import axios from 'axios';
 
-// Use environment variable for API URL, fallback to relative path with proxy
+// Use environment variable for API URL ONLY if explicitly set
+// Otherwise use relative path '/api' which goes through Vite proxy
 const baseURL = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
 
 // Export base URL for use in fetch() calls
+// Returns empty string to use relative URLs (proxy)
 export const getApiBaseUrl = () => {
   return import.meta.env.VITE_API_URL || '';
 };
