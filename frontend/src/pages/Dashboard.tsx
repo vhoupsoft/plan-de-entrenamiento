@@ -700,8 +700,14 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', gap: 2 }}>
+        <CircularProgress size={60} />
+        <Typography variant="body1" color="text.secondary">
+          Cargando panel de entrenamiento...
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 300, textAlign: 'center' }}>
+          {isMobile ? 'Si estás usando datos móviles, puede tardar un poco más' : 'Esto puede tardar unos segundos'}
+        </Typography>
       </Box>
     );
   }
