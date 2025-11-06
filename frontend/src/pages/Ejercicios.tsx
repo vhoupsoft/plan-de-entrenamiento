@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api';
+import api, { getApiBaseUrl } from '../api';
 import { useAuth } from '../context/AuthContext';
 import {
   Box,
@@ -134,7 +134,10 @@ export default function Ejercicios() {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await window.fetch('/api/upload/ejercicio-imagen', {
+      const apiBase = getApiBaseUrl();
+      const uploadUrl = apiBase ? `${apiBase}/api/upload/ejercicio-imagen` : '/api/upload/ejercicio-imagen';
+
+      const response = await window.fetch(uploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
